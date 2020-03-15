@@ -74,9 +74,33 @@ class Class_DB():
         self.path_file_HIST = ''    # c:\\hist_log_ad_A7.txt
         self.dt_start_sec   = 0     # 2017-01-01 00:00:00
         self.path_file_TXT  = ''    # c:\\hist_log_ALOR.txt
+        #
+        self.dt_file = 0        # curv stamptime data file path_file_DATA
+        self.dt_data = 0        # curv stamptime DATA/TIME from TERM
+        self.ar_file = []       # list of strings from path_file_DATA
+        self.hist_in_file = []  # list of strings from path_file_HIST
+        #
+        self.sec_10_00 = 36000      # seconds from 00:00 to 10:00
+        self.sec_14_00 = 50410      # seconds from 00:00 to 14:00
+        self.sec_14_05 = 50690      # seconds from 00:00 to 14:05
+        #self.sec_18_45 = 67500      # seconds from 00:00 to 18:45
+        self.sec_18_45 = 67500      # seconds from 00:00 to 18:45
+        self.sec_19_05 = 68700      # seconds from 00:00 to 19:05
+        self.sec_23_45 = 85500      # seconds from 00:00 to 23:45
+
+    def prn_arr(self, name_arr, arr):
+        print('len(' + name_arr + ')   => ' + str(len(arr)) + '\n' )
+        if len(arr) > 4:
+            for i in [0,1,2]: print(arr[i],'\n')
+            print('+++++++++++++++++++++++++\n')
+            for i in [-2,-1]: print(arr[i],'\n')
+        else:
+            for item in arr: print(item, '\n')
 
     def prn(self,
             p_cfg_SOFT  = False,
+            p_ar_FILE   = False,
+            p_hist_in_file = False,
             ):
         s = ''
         try:
@@ -88,6 +112,13 @@ class Class_DB():
                 print(frm.format('path_file_DATA', self.path_file_DATA))
                 print(frm.format('path_file_HIST', self.path_file_HIST))
                 print(frm.format('path_db_today',  self.path_db))
+
+            if p_ar_FILE:
+                for i in self.ar_file:   print(i)
+
+            if p_hist_in_file:
+                self.prn_arr('hist_in_file', self.hist_in_file)
+
         except Exception as ex:
             r_prn = [1, 'op_archiv / ' + str(ex)]
 
@@ -95,10 +126,8 @@ class Class_DB():
 
     def op(self,
             rd_cfg_SOFT  = False,
-
             rd_term_FUT  = False,
             rd_term_HST  = False,
-
             ):
         r_op_today = []
         self.conn = sqlite3.connect(self.path_db)
@@ -122,6 +151,87 @@ class Class_DB():
                     frm = '%Y-%m-%d %H:%M:%S'
                     self.dt_start_sec = \
                         int(datetime.strptime(self.dt_start, frm).replace(tzinfo=timezone.utc).timestamp())
+
+                if rd_term_FUT:
+                    #--- check file cntr.file_path_DATA ----------------------------
+                    if not os.path.isfile(self.path_file_DATA):
+                        err_msg = 'can not find file => ' + self.path_file_DATA
+                        #cntr.log.wr_log_error(err_msg)
+                        return [1, err_msg]
+                    buf_stat = os.stat(self.path_file_DATA)
+                    #
+                    #--- check size of file ----------------------------------------
+                    if buf_stat.st_size == 0:
+                        err_msg = 'size DATA file is NULL'
+                        #cntr.log.wr_log_error(err_msg)
+                        return [2, err_msg]
+                    #
+                    #--- check time modificated of file ----------------------------
+                    if int(buf_stat.st_mtime) == self.dt_file:
+                        #str_dt_file = datetime.fromtimestamp(self.dt_file).strftime('%H:%M:%S')
+                        return [3, 'FILE is not modificated ' + time.strftime("%M:%S", time.gmtime())]
+                    else:
+                        self.dt_file = int(buf_stat.st_mtime)
+                    #--- read TERM file --------------------------------------------
+                    buf_str = []
+                    with open(self.path_file_DATA,"r") as fh:
+                        buf_str = fh.read().splitlines()
+                    #
+                    #--- check size of list/file -----------------------------------
+                    print('len(buf_str) = ', len(buf_str))
+                    if len(buf_str) == 0:
+                        err_msg = ' the size buf_str is NULL'
+                        #cntr.log.wr_log_error(err_msg)
+                        return [4, err_msg]
+                    #
+                    self.ar_file = []
+                    self.ar_file = buf_str[:]
+                    #
+                    #--- update table 'data_FUT' -----------------------------------
+                    self.cur.execute('DELETE FROM ' + 'data_FUT')
+                    self.cur.executemany('INSERT INTO ' + 'data_FUT' + ' VALUES' + '(?)', ((j,) for j in buf_str))
+                    self.conn.commit()
+
+                if rd_term_HST:
+                    print('start rd_term_HST!  => ', str(len(self.hist_in_file)))
+                    #--- check file cntr.file_path_DATA ----------------------------
+                    if not os.path.isfile(self.path_file_HIST):
+                        err_msg = 'can not find file => ' + self.path_file_HIST
+                        #cntr.log.wr_log_error(err_msg)
+                        return [1, err_msg]
+                    buf_stat = os.stat(self.path_file_HIST)
+                    #
+                    #--- check size of file ----------------------------------------
+                    if buf_stat.st_size == 0:
+                        err_msg = 'size HIST file is NULL'
+                        return [2, err_msg]
+                    #
+                    #--- read HIST file --------------------------------------------
+                    buf_str = []
+                    with open(self.path_file_HIST,"r") as fh:
+                        buf_str = fh.read().splitlines()
+                    #
+                    #--- check size of list/file -----------------------------------
+                    if len(buf_str) == 0:
+                        err_msg = 'the size buf_str(HIST) is NULL '
+                        return [3, err_msg]
+                    #
+                    #--- check MARKET time from 10:00 to 23:45 ---------------------
+                    self.hist_in_file = []
+                    for item in buf_str:
+                        term_dt = item.split('|')[0]
+                        dtt = datetime.strptime(str(term_dt), "%d.%m.%Y %H:%M:%S")
+                        cur_time = dtt.second + 60 * dtt.minute + 60 * 60 * dtt.hour
+                        if (
+                            (cur_time > self.sec_10_00  and # from 10:00 to 14:00
+                            cur_time < self.sec_14_00) or
+                            (cur_time > self.sec_14_05  and # from 14:05 to 18:45
+                            cur_time < self.sec_18_45) or
+                            (cur_time > self.sec_19_05  and # from 19:05 to 23:45
+                            cur_time < self.sec_23_45)):
+                                self.hist_in_file.append(item)
+                    print('finish rd_term_HST!  => ', str(len(self.hist_in_file)))
+
 
         except Exception as ex:
             r_op_today = [1, 'op_today / ' + str(ex)]
@@ -199,15 +309,22 @@ def main():
         lg_FILE.wr_log_info('START')
         rq = db_TODAY.op(
                         rd_cfg_SOFT  = True,
+                        rd_term_FUT  = True,
+                        rd_term_HST  = True,
                         )
         if rq[0] != 0 : #prn_rq('INIT rd_cfg_SOFT TODAY', rq)
             print('INIT = > ', rq[1])
         else:
             print('INIT cfg_term_data_hist TODAY = > ', rq)
 
-        db_TODAY.prn(
+        rq = db_TODAY.prn(
                         p_cfg_SOFT  = True,
+                        p_ar_FILE = True,
+                        p_hist_in_file = True,
                         )
+        if rq[0] != 0 :
+            print('print INIT = > ', rq[1])
+
         break
     #test_menus()
     return 0
