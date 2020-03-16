@@ -80,6 +80,14 @@ class Class_DB():
         self.ar_file = []       # list of strings from path_file_DATA
         self.hist_in_file = []  # list of strings from path_file_HIST
         #
+        self.buf_file    = []               # data FUT from TXT file
+        #self.dt_fut_file = []               # list of Class_FUT()
+        #self.ac_fut_file = Class_ACCOUNT()  # obj Class_ACCOUNT()
+        self.delay_tm = 8       # min period to get data for DB (10 sec)
+        #
+        self.dt_fut   = []               # list of Class_FUT()
+        self.account  = Class_ACCOUNT()  # obj Class_ACCOUNT()
+        #
         self.sec_10_00 = 36000      # seconds from 00:00 to 10:00
         self.sec_14_00 = 50410      # seconds from 00:00 to 14:00
         self.sec_14_05 = 50690      # seconds from 00:00 to 14:05
@@ -101,6 +109,7 @@ class Class_DB():
             p_cfg_SOFT  = False,
             p_ar_FILE   = False,
             p_hist_in_file = False,
+            p_data_FUT  = False,
             ):
         s = ''
         try:
@@ -115,6 +124,10 @@ class Class_DB():
 
             if p_ar_FILE:
                 for i in self.ar_file:   print(i)
+
+            if p_data_FUT:
+                print(self.account)
+                for i in self.dt_fut:   print(i)
 
             if p_hist_in_file:
                 self.prn_arr('hist_in_file', self.hist_in_file)
@@ -191,6 +204,22 @@ class Class_DB():
                     self.cur.execute('DELETE FROM ' + 'data_FUT')
                     self.cur.executemany('INSERT INTO ' + 'data_FUT' + ' VALUES' + '(?)', ((j,) for j in buf_str))
                     self.conn.commit()
+                    #
+                    self.dt_fut = []
+                    acc = self.account
+                    for i, item in enumerate(buf_str):
+                        lst = ''.join(item).replace(',','.').split('|')
+                        del lst[-1]
+                        #print('lst = > \n', lst)
+                        if   i == 0:
+                            acc.dt  = lst[0]
+                        elif i == 1:
+                            acc.arr = [float(j) for j in lst]
+                        else:
+                            b_fut = Class_FUT()
+                            b_fut.sP_code = lst[0]
+                            b_fut.arr     = [float(k) for k in lst[1:]]
+                            self.dt_fut.append(b_fut)
 
                 if rd_term_HST:
                     print('start rd_term_HST!  => ', str(len(self.hist_in_file)))
@@ -317,16 +346,56 @@ def main():
         else:
             print('INIT cfg_term_data_hist TODAY = > ', rq)
 
-        rq = db_TODAY.prn(
-                        p_cfg_SOFT  = True,
-                        p_ar_FILE = True,
-                        p_hist_in_file = True,
-                        )
-        if rq[0] != 0 :
-            print('print INIT = > ', rq[1])
+        # rq = db_TODAY.prn(
+                        # p_cfg_SOFT  = True,
+                        # p_ar_FILE = True,
+                        # p_data_FUT = True,
+                        # p_hist_in_file = True,
+
+                        # )
+        # if rq[0] != 0 :
+            # print('print INIT = > ', rq[1])
 
         break
-    #test_menus()
+
+    while True:  # init MENU -------------------------------------------
+        def_txt, frm = [], '{: <10}  => {: ^15}\n'
+        def_txt.append(frm.format('db_today' , '\\DB\\db_today.sqlite'))
+        #=======================================================================
+        menu_def = [
+            ['Mode',
+                ['auto','manual','auto_TEST','cnrt_TXT_HIST', ], ],
+            ['READ  today',
+                ['rd_term_FUT',  'rd_term_HST',   '---',
+                'rd_cfg_PACK',   'rd_data_FUT',   '---',
+                'rd_hst_FUT_t',  'rd_hst_PCK_t',  '---',
+                'rd_hst_FUT',    'rd_hst_PCK'],],
+            ['WRITE today',
+                ['wr_cfg_PACK',  'wr_data_FUT',   '---', 'wr_hist_FUT_t', 'wr hist_FUT',  '---', 'wr_hst_PCK_t', 'wr_hst_PCK'],],
+            ['CALC',
+                ['ASK_BID', 'EMA_f', '---', 'ASK_BID_t', 'EMA_f_t', '---', 'cnt', '---', 'update_arr_PK', 'update_arr_PK_t'] ,],
+            ['PRINT today',
+                ['prn_cfg_SOFT', 'prn_cfg_PACK', 'prn_cfg_ALARM',   '---',
+                'prn_ar_FILE',   'prn_hist_in_FILE', '---',
+                'prn_data_FUT',  '---',
+                'prn_hst_FUT_t', 'prn_arr_FUT_t', 'prn_arr_PK_t',   '---',
+                'prn_arr_FUT',   'prn_arr_PK'],],
+            ['Plot', 'win2_active'],
+            ['Exit', 'Exit']
+        ]
+        #=======================================================================
+        # Display data
+        layout = [
+                    [sg.Menu(menu_def, tearoff=False, key='menu_def')],
+                    [sg.Multiline( default_text=''.join(def_txt),
+                        size=(50, 5), key='txt_data', autoscroll=False, focus=False),],
+                    [sg.T('',size=(60,2), font='Helvetica 8', key='txt_status'), sg.Quit(auto_size_button=True)],
+                 ]
+        sg.SetOptions(element_padding=(0,0))
+        window = sg.Window('Test db_today', grab_anywhere=True).Layout(layout).Finalize()
+        window.FindElement('txt_data').Update(''.join(def_txt))
+        break
+
     return 0
 
 if __name__ == '__main__':
