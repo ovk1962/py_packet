@@ -110,6 +110,9 @@ class Class_DB():
             p_ar_FILE   = False,
             p_hist_in_file = False,
             p_data_FUT  = False,
+            p_hst_FUT_t = False,
+            p_arr_FUT_t = False,
+            p_arr_fut   = False,
             ):
         s = ''
         try:
@@ -132,6 +135,15 @@ class Class_DB():
             if p_hist_in_file:
                 self.prn_arr('hist_in_file', self.hist_in_file)
 
+            if p_hst_FUT_t:
+                self.prn_arr('hst_fut_t', self.hst_fut_t)
+
+            if p_arr_FUT_t:
+                self.prn_arr('arr_fut_t', self.arr_fut_t)
+
+            if p_arr_fut:
+                self.prn_arr('arr_fut', self.arr_fut)
+
         except Exception as ex:
             r_prn = [1, 'op_archiv / ' + str(ex)]
 
@@ -139,8 +151,18 @@ class Class_DB():
 
     def op(self,
             rd_cfg_SOFT  = False,
+
             rd_term_FUT  = False,
             rd_term_HST  = False,
+
+            wr_data_FUT  = False,
+            rd_data_FUT  = False,
+
+            rd_hst_FUT   = False,
+
+            wr_hist_FUT_t = False,
+            rd_hst_FUT_t  = False,
+
             ):
         r_op_today = []
         self.conn = sqlite3.connect(self.path_db)
@@ -261,72 +283,221 @@ class Class_DB():
                                 self.hist_in_file.append(item)
                     print('finish rd_term_HST!  => ', str(len(self.hist_in_file)))
 
+                if wr_data_FUT:
+                    print('start wr_data_FUT! ')
+                    self.dt_fut = []
+                    acc = self.account
+                    for i, item in enumerate(list(self.ar_file)):
+                        lst = ''.join(item).replace(',','.').split('|')
+                        del lst[-1]
+                        if   i == 0:
+                            acc.dt  = lst[0]
+                        elif i == 1:
+                            acc.arr = [float(j) for j in lst]
+                        else:
+                            b_fut = Class_FUT()
+                            b_fut.sP_code = lst[0]
+                            b_fut.arr     = [float(k) for k in lst[1:]]
+                            self.dt_fut.append(b_fut)
+                    self.cur.execute('DELETE FROM ' + 'data_FUT')
+                    self.cur.executemany('INSERT INTO ' + 'data_FUT' + ' VALUES' + '(?)', ((jtem,) for jtem in self.ar_file))
+                    self.conn.commit()
+                    print('finish wr_data_FUT!  => ', str(len(self.ar_file)))
+
+                if rd_data_FUT:
+                    print('start rd_data_FUT! ')
+                    data = []
+                    self.cur.execute('SELECT * from ' + 'data_FUT')
+                    data = self.cur.fetchall()    # read table name_tbl
+                    #
+                    self.dt_fut = []
+                    acc = self.account
+                    for i, item in enumerate(list(data)):
+                        lst = ''.join(item).replace(',','.').split('|')
+                        del lst[-1]
+                        if   i == 0:
+                            acc.dt  = lst[0]
+                        elif i == 1:
+                            acc.arr = [float(j) for j in lst]
+                        else:
+                            b_fut = Class_FUT()
+                            b_fut.sP_code = lst[0]
+                            b_fut.arr     = [float(k) for k in lst[1:]]
+                            self.dt_fut.append(b_fut)
+                    print('finish rd_data_FUT! => ', str(len(self.dt_fut)))
+
+                if rd_hst_FUT:
+                    print('start rd_hst_FUT! ')
+                    self.cur.execute('SELECT * from ' + 'hist_FUT')
+                    arr_buf = []    #self.hst_fut = []
+                    arr_buf = self.cur.fetchall()    # read table name_tbl
+                    print('len(hist_FUT) = ', len(arr_buf))
+                    self.arr_fut  = []
+                    for cnt, i_str in enumerate(arr_buf):
+                        #arr_item = (i_str[1].replace(',', '.')).split('|')
+                        s = Class_str_FUT()
+                        s.ind_s = i_str[0]
+                        s.dt    = i_str[1].split('|')[0].split(' ')
+                        arr_buf = i_str[1].replace(',', '.').split('|')[1:-1]
+                        fAsk, fBid = range(2)
+                        for item in (zip(arr_buf[::2], arr_buf[1::2])):
+                            s.arr.append([float(item[fAsk]), float(item[fBid])])
+                        self.arr_fut.append(s)
+                        if len(self.arr_fut) % 1000 == 0:  print(len(self.arr_fut), end='\r')
+                    print('finish rd_hst_FUT! => ', str(len(self.arr_fut)))
+
+                if rd_hst_FUT_t:
+                    print('start rd_hst_FUT_t! ')
+                    self.cur.execute('SELECT * from ' + 'hist_FUT_today')
+                    self.hst_fut_t = []
+                    self.hst_fut_t = self.cur.fetchall()    # read table name_tbl
+                    print('len(hist_FUT_today) = ', len(self.hst_fut_t))
+                    self.arr_fut_t  = []
+                    for cnt, i_str in enumerate(self.hst_fut_t):
+                        mn_pr, mn_cr = '', ''
+                        if cnt == 0 :
+                            mn_pr, mn_cr = '', '00'
+                        else:
+                            mn_pr = self.hst_fut_t[cnt-1][1][14:16]
+                            mn_cr = self.hst_fut_t[cnt-0][1][14:16]
+                        if mn_pr != mn_cr:
+                            s = Class_str_FUT()
+                            s.ind_s = i_str[0]
+                            s.dt    = i_str[1].split('|')[0].split(' ')
+                            arr_buf = i_str[1].replace(',', '.').split('|')[1:-1]
+                            fAsk, fBid = range(2)
+                            for item in (zip(arr_buf[::2], arr_buf[1::2])):
+                                s.arr.append([float(item[fAsk]), float(item[fBid])])
+                            self.arr_fut_t.append(s)
+                        if len(self.arr_fut_t) % 100 == 0:  print(len(self.arr_fut_t), end='\r')
+                    print('finish rd_hst_FUT_t => !', str(len(self.arr_fut_t)))
 
         except Exception as ex:
             r_op_today = [1, 'op_today / ' + str(ex)]
 
         return r_op_today
 #=======================================================================
+
 #=======================================================================
-def second_window():
+# def second_window():
 
-    layout = [[sg.Text('The second form is small \nHere to show that opening a window using a window works')],
-              [sg.OK()]]
+    # layout = [[sg.Text('The second form is small \nHere to show that opening a window using a window works')],
+              # [sg.OK()]]
 
-    window = sg.Window('Second Form', layout)
-    event, values = window.read()
-    window.close()
-
-
-def test_menus():
-
-    sg.theme('LightGreen')
-    sg.set_options(element_padding=(0, 0))
-
-    # ------ Menu Definition ------ #
-    menu_def = [['&File', ['&Open     Ctrl-O', '&Save       Ctrl-S', '&Properties', 'E&xit']],
-                ['&Edit', ['&Paste', ['Special', 'Normal', ], 'Undo'], ],
-                ['&Toolbar', ['---', 'Command &1', 'Command &2',
-                              '---', 'Command &3', 'Command &4']],
-                ['&Help', '&About...'], ]
-
-    right_click_menu = ['Unused', ['Right', '!&Click', '&Menu', 'E&xit', 'Properties']]
-
-    # ------ GUI Defintion ------ #
-    layout = [
-        [sg.Menu(menu_def, tearoff=False, pad=(200, 1))],
-        [sg.Text('Right click me for a right click menu example')],
-        [sg.Output(size=(60, 20))],
-        [sg.ButtonMenu('ButtonMenu',  right_click_menu, key='-BMENU-'), sg.Button('Plain Button')],
-    ]
-
-    window = sg.Window("Windows-like program",
-                       layout,
-                       default_element_size=(12, 1),
-                       default_button_element_size=(12, 1),
-                       right_click_menu=right_click_menu)
-
-    # ------ Loop & Process button menu choices ------ #
-    while True:
-        event, values = window.read()
-        if event in (None, 'Exit'):
-            break
-        print(event, values)
-        # ------ Process menu choices ------ #
-        if event == 'About...':
-            window.disappear()
-            sg.popup('About this program', 'Version 1.0',
-                     'PySimpleGUI Version', sg.version,  grab_anywhere=True)
-            window.reappear()
-        elif event == 'Open':
-            filename = sg.popup_get_file('file to open', no_window=True)
-            print(filename)
-        elif event == 'Properties':
-            second_window()
-
-    window.close()
+    # window = sg.Window('Second Form', layout)
+    # event, values = window.read()
+    # window.close()
 
 
+# def test_menus():
+
+    # sg.theme('LightGreen')
+    # sg.set_options(element_padding=(0, 0))
+
+    # # ------ Menu Definition ------ #
+    # menu_def = [['&File', ['&Open     Ctrl-O', '&Save       Ctrl-S', '&Properties', 'E&xit']],
+                # ['&Edit', ['&Paste', ['Special', 'Normal', ], 'Undo'], ],
+                # ['&Toolbar', ['---', 'Command &1', 'Command &2',
+                              # '---', 'Command &3', 'Command &4']],
+                # ['&Help', '&About...'], ]
+
+    # right_click_menu = ['Unused', ['Right', '!&Click', '&Menu', 'E&xit', 'Properties']]
+
+    # # ------ GUI Defintion ------ #
+    # layout = [
+        # [sg.Menu(menu_def, tearoff=False, pad=(200, 1))],
+        # [sg.Text('Right click me for a right click menu example')],
+        # [sg.Output(size=(60, 20))],
+        # [sg.ButtonMenu('ButtonMenu',  right_click_menu, key='-BMENU-'), sg.Button('Plain Button')],
+    # ]
+
+    # window = sg.Window("Windows-like program",
+                       # layout,
+                       # default_element_size=(12, 1),
+                       # default_button_element_size=(12, 1),
+                       # right_click_menu=right_click_menu)
+
+    # # ------ Loop & Process button menu choices ------ #
+    # while True:
+        # event, values = window.read()
+        # if event in (None, 'Exit'):
+            # break
+        # print(event, values)
+        # # ------ Process menu choices ------ #
+        # if event == 'About...':
+            # window.disappear()
+            # sg.popup('About this program', 'Version 1.0',
+                     # 'PySimpleGUI Version', sg.version,  grab_anywhere=True)
+            # window.reappear()
+        # elif event == 'Open':
+            # filename = sg.popup_get_file('file to open', no_window=True)
+            # print(filename)
+        # elif event == 'Properties':
+            # second_window()
+
+    # window.close()
+
+#=======================================================================
+def event_menu(event, db_TODAY):
+    rq = [0,event]
+    #-------------------------------------------------------------------
+    os.system('cls')  # on windows
+    #-------------------------------------------------------------------
+    if event == 'rd_term_FUT'  :
+        print('rd_term_FUT ...')
+        rq = db_TODAY.op(rd_term_FUT = True)
+    #-------------------------------------------------------------------
+    if event == 'rd_term_HST'  :
+        print('rd_term_HST ...')
+        rq = db_TODAY.op(rd_term_HST = True)
+    #-------------------------------------------------------------------
+    if event == 'rd_data_FUT'  :
+        print('rd_data_FUT ...')
+        rq = db_TODAY.op(rd_data_FUT = True)
+    #-------------------------------------------------------------------
+    if event == 'rd_hst_FUT_t'  :
+        print('rd_hst_FUT_t ...')
+        rq = db_TODAY.op(rd_hst_FUT_t = True)
+    #-------------------------------------------------------------------
+    if event == 'rd_hst_FUT'  :
+        print('rd_hst_FUT ...')
+        rq = db_TODAY.op(rd_hst_FUT = True)
+    #-------------------------------------------------------------------
+
+    #-------------------------------------------------------------------
+    if event == 'prn_cfg_SOFT'  :
+        print('prn_cfg_SOFT ...')
+        rq = db_TODAY.prn(p_cfg_SOFT = True)
+    #-------------------------------------------------------------------
+    if event == 'prn_ar_FILE'  :
+        print('prn_ar_FILE ...')
+        rq = db_TODAY.prn(p_ar_FILE = True)
+    #-------------------------------------------------------------------
+    if event == 'prn_hist_in_FILE'  :
+        print('prn_hist_in_FILE ...')
+        rq = db_TODAY.prn(p_hist_in_file = True)
+    #-------------------------------------------------------------------
+    if event == 'prn_data_FUT'  :
+        print('prn_data_FUT ...')
+        rq = db_TODAY.prn(p_data_FUT = True)
+    #-------------------------------------------------------------------
+    if event == 'prn_hst_FUT_t'  :
+        print('prn_hst_FUT_t ...')
+        rq = db_TODAY.prn(p_hst_FUT_t = True)
+    #-------------------------------------------------------------------
+    if event == 'prn_arr_FUT_t'  :
+        print('prn_arr_FUT_t ...')
+        rq = db_TODAY.prn(p_arr_FUT_t = True)
+    #-------------------------------------------------------------------
+    if event == 'prn_arr_FUT'  :
+        print('prn_arr_FUT ...')
+        rq = db_TODAY.prn(p_arr_fut = True)
+    #-------------------------------------------------------------------
+
+    #-------------------------------------------------------------------
+
+    print('rq = ', rq)
+#=======================================================================
 def main():
     while True:  # init db_TODAY ---------------------------------------
         sg.theme('LightGreen')
@@ -364,23 +535,18 @@ def main():
         #=======================================================================
         menu_def = [
             ['Mode',
-                ['auto','manual','auto_TEST','cnrt_TXT_HIST', ], ],
-            ['READ  today',
+                ['auto','manual',], ],
+            ['READ',
                 ['rd_term_FUT',  'rd_term_HST',   '---',
-                'rd_cfg_PACK',   'rd_data_FUT',   '---',
-                'rd_hst_FUT_t',  'rd_hst_PCK_t',  '---',
-                'rd_hst_FUT',    'rd_hst_PCK'],],
-            ['WRITE today',
-                ['wr_cfg_PACK',  'wr_data_FUT',   '---', 'wr_hist_FUT_t', 'wr hist_FUT',  '---', 'wr_hst_PCK_t', 'wr_hst_PCK'],],
-            ['CALC',
-                ['ASK_BID', 'EMA_f', '---', 'ASK_BID_t', 'EMA_f_t', '---', 'cnt', '---', 'update_arr_PK', 'update_arr_PK_t'] ,],
-            ['PRINT today',
-                ['prn_cfg_SOFT', 'prn_cfg_PACK', 'prn_cfg_ALARM',   '---',
+                 'rd_data_FUT',  'rd_hst_FUT_t',  'rd_hst_FUT', ],],
+            ['WRITE',
+                ['wr_data_FUT',  'wr_hist_FUT_t', 'wr hist_FUT',],],
+            ['PRINT',
+                ['prn_cfg_SOFT',   '---',
                 'prn_ar_FILE',   'prn_hist_in_FILE', '---',
                 'prn_data_FUT',  '---',
-                'prn_hst_FUT_t', 'prn_arr_FUT_t', 'prn_arr_PK_t',   '---',
-                'prn_arr_FUT',   'prn_arr_PK'],],
-            ['Plot', 'win2_active'],
+                'prn_hst_FUT_t', 'prn_arr_FUT_t',    '---',
+                'prn_arr_FUT',  ],],
             ['Exit', 'Exit']
         ]
         #=======================================================================
@@ -395,6 +561,42 @@ def main():
         window = sg.Window('Test db_today', grab_anywhere=True).Layout(layout).Finalize()
         window.FindElement('txt_data').Update(''.join(def_txt))
         break
+
+    tm_out, mode, frm = 2500, 'auto', '%d.%m.%Y %H:%M:%S'
+    stts  = time.strftime(frm, time.localtime()) + '\n' + 'event = manual'
+    window.FindElement('txt_status').Update(stts)
+
+    while True:  # MAIN cycle ------------------------------------------
+        stroki = []
+        event, values = window.Read(timeout = tm_out )
+        #---------------------------------------------------------------
+        event_menu(event, db_TODAY)
+        #---------------------------------------------------------------
+        if event is None or event == 'Quit' or event == 'Exit': break
+        #---------------------------------------------------------------
+        if event == 'auto'   :    tm_out, mode =  2500,   'auto'
+        #---------------------------------------------------------------
+        if event == 'manual' :    tm_out, mode = 360000, 'manual'
+        #---------------------------------------------------------------
+        if event == '__TIMEOUT__':
+            rq = db_TODAY.op(
+                        rd_term_FUT  = True,
+                        rd_term_HST  = True,
+                        )
+            if rq[0] == 0:
+                #stroki.append('OK')
+                stroki.append('date FUT  => ' + db_TODAY.account.dt)
+                stroki.append('last HIST => ' + db_TODAY.hist_in_file[-1].split('|')[0])
+                stroki.append('len  HIST => ' + str(len(db_TODAY.hist_in_file)))
+            else:
+                stroki.append(rq[1])
+            stroki.append('PROFIT  => ' + str(db_TODAY.account.arr[Class_ACCOUNT.prf]))
+
+        #---------------------------------------------------------------
+        window.FindElement('txt_data').Update('\n'.join(stroki))
+        stts  = time.strftime(frm, time.localtime()) + '\n'
+        stts += 'event = ' + event
+        window.FindElement('txt_status').Update(stts)
 
     return 0
 
