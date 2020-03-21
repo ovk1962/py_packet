@@ -152,6 +152,9 @@ class Class_DB():
     def op(self,
             rd_cfg_SOFT  = False,
 
+            update_data_FUT = False,
+            update_data_HST = False,
+
             rd_term_FUT  = False,
             rd_term_HST  = False,
 
@@ -187,7 +190,7 @@ class Class_DB():
                     self.dt_start_sec = \
                         int(datetime.strptime(self.dt_start, frm).replace(tzinfo=timezone.utc).timestamp())
 
-                if rd_term_FUT:
+                if update_data_FUT:
                     #--- check file cntr.file_path_DATA ----------------------------
                     if not os.path.isfile(self.path_file_DATA):
                         err_msg = 'can not find file => ' + self.path_file_DATA
@@ -242,6 +245,96 @@ class Class_DB():
                             b_fut.sP_code = lst[0]
                             b_fut.arr     = [float(k) for k in lst[1:]]
                             self.dt_fut.append(b_fut)
+
+                if update_data_HST:
+                    print('start rd_term_HST!  => ', str(len(self.hist_in_file)))
+                    #--- check file cntr.file_path_DATA ----------------------------
+                    if not os.path.isfile(self.path_file_HIST):
+                        err_msg = 'can not find file => ' + self.path_file_HIST
+                        #cntr.log.wr_log_error(err_msg)
+                        return [1, err_msg]
+                    buf_stat = os.stat(self.path_file_HIST)
+                    #
+                    #--- check size of file ----------------------------------------
+                    if buf_stat.st_size == 0:
+                        err_msg = 'size HIST file is NULL'
+                        return [2, err_msg]
+                    #
+                    #--- read HIST file --------------------------------------------
+                    buf_str = []
+                    with open(self.path_file_HIST,"r") as fh:
+                        buf_str = fh.read().splitlines()
+                    #
+                    #--- check size of list/file -----------------------------------
+                    if len(buf_str) == 0:
+                        err_msg = 'the size buf_str(HIST) is NULL '
+                        return [3, err_msg]
+                    #
+                    #--- check MARKET time from 10:00 to 23:45 ---------------------
+                    self.hist_in_file = []
+                    for item in buf_str:
+                        term_dt = item.split('|')[0]
+                        dtt = datetime.strptime(str(term_dt), "%d.%m.%Y %H:%M:%S")
+                        cur_time = dtt.second + 60 * dtt.minute + 60 * 60 * dtt.hour
+                        if (
+                            (cur_time > self.sec_10_00  and # from 10:00 to 14:00
+                            cur_time < self.sec_14_00) or
+                            (cur_time > self.sec_14_05  and # from 14:05 to 18:45
+                            cur_time < self.sec_18_45) or
+                            (cur_time > self.sec_19_05  and # from 19:05 to 23:45
+                            cur_time < self.sec_23_45)):
+                                self.hist_in_file.append(item)
+                    print('finish rd_term_HST!  => ', str(len(self.hist_in_file)))
+                    #--- update table 'hist_FUT_today' ------------------------------
+                    buf_list =[]
+                    pAsk, pBid = range(2)
+                    if len(self.hist_in_file) > 0:
+                        for it in self.hist_in_file:
+                            dtt = datetime.strptime(it.split('|')[0], '%d.%m.%Y %H:%M:%S')
+                            ind_sec  = int(dtt.replace(tzinfo=timezone.utc).timestamp())
+                            buf_list.append([ind_sec, it])
+
+                    ''' rewrite data from table hist_FUT_today ------'''
+                    self.cur.execute('DELETE FROM ' + 'hist_FUT_today')
+                    self.cur.executemany('INSERT INTO ' + 'hist_FUT_today' + ' VALUES' + '(?,?)', buf_list)
+                    self.conn.commit()
+
+                if rd_term_FUT:
+                    print('start rd_term_FUT!  => ', str(len(self.ar_file)))
+                    #--- check file cntr.file_path_DATA ----------------------------
+                    if not os.path.isfile(self.path_file_DATA):
+                        err_msg = 'can not find file => ' + self.path_file_DATA
+                        #cntr.log.wr_log_error(err_msg)
+                        return [1, err_msg]
+                    buf_stat = os.stat(self.path_file_DATA)
+                    #
+                    #--- check size of file ----------------------------------------
+                    if buf_stat.st_size == 0:
+                        err_msg = 'size DATA file is NULL'
+                        #cntr.log.wr_log_error(err_msg)
+                        return [2, err_msg]
+                    #
+                    #--- check time modificated of file ----------------------------
+                    if int(buf_stat.st_mtime) == self.dt_file:
+                        #str_dt_file = datetime.fromtimestamp(self.dt_file).strftime('%H:%M:%S')
+                        return [3, 'FILE is not modificated ' + time.strftime("%M:%S", time.gmtime())]
+                    else:
+                        self.dt_file = int(buf_stat.st_mtime)
+                    #--- read TERM file --------------------------------------------
+                    buf_str = []
+                    with open(self.path_file_DATA,"r") as fh:
+                        buf_str = fh.read().splitlines()
+                    #
+                    #--- check size of list/file -----------------------------------
+                    print('len(buf_str) = ', len(buf_str))
+                    if len(buf_str) == 0:
+                        err_msg = ' the size buf_str is NULL'
+                        #cntr.log.wr_log_error(err_msg)
+                        return [4, err_msg]
+                    #
+                    self.ar_file = []
+                    self.ar_file = buf_str[:]
+                    print('finish rd_term_FUT!  => ', str(len(self.ar_file)))
 
                 if rd_term_HST:
                     print('start rd_term_HST!  => ', str(len(self.hist_in_file)))
@@ -326,26 +419,6 @@ class Class_DB():
                             self.dt_fut.append(b_fut)
                     print('finish rd_data_FUT! => ', str(len(self.dt_fut)))
 
-                if rd_hst_FUT:
-                    print('start rd_hst_FUT! ')
-                    self.cur.execute('SELECT * from ' + 'hist_FUT')
-                    arr_buf = []    #self.hst_fut = []
-                    arr_buf = self.cur.fetchall()    # read table name_tbl
-                    print('len(hist_FUT) = ', len(arr_buf))
-                    self.arr_fut  = []
-                    for cnt, i_str in enumerate(arr_buf):
-                        #arr_item = (i_str[1].replace(',', '.')).split('|')
-                        s = Class_str_FUT()
-                        s.ind_s = i_str[0]
-                        s.dt    = i_str[1].split('|')[0].split(' ')
-                        arr_buf = i_str[1].replace(',', '.').split('|')[1:-1]
-                        fAsk, fBid = range(2)
-                        for item in (zip(arr_buf[::2], arr_buf[1::2])):
-                            s.arr.append([float(item[fAsk]), float(item[fBid])])
-                        self.arr_fut.append(s)
-                        if len(self.arr_fut) % 1000 == 0:  print(len(self.arr_fut), end='\r')
-                    print('finish rd_hst_FUT! => ', str(len(self.arr_fut)))
-
                 if rd_hst_FUT_t:
                     print('start rd_hst_FUT_t! ')
                     self.cur.execute('SELECT * from ' + 'hist_FUT_today')
@@ -378,64 +451,6 @@ class Class_DB():
         return r_op_today
 #=======================================================================
 
-#=======================================================================
-# def second_window():
-
-    # layout = [[sg.Text('The second form is small \nHere to show that opening a window using a window works')],
-              # [sg.OK()]]
-
-    # window = sg.Window('Second Form', layout)
-    # event, values = window.read()
-    # window.close()
-
-
-# def test_menus():
-
-    # sg.theme('LightGreen')
-    # sg.set_options(element_padding=(0, 0))
-
-    # # ------ Menu Definition ------ #
-    # menu_def = [['&File', ['&Open     Ctrl-O', '&Save       Ctrl-S', '&Properties', 'E&xit']],
-                # ['&Edit', ['&Paste', ['Special', 'Normal', ], 'Undo'], ],
-                # ['&Toolbar', ['---', 'Command &1', 'Command &2',
-                              # '---', 'Command &3', 'Command &4']],
-                # ['&Help', '&About...'], ]
-
-    # right_click_menu = ['Unused', ['Right', '!&Click', '&Menu', 'E&xit', 'Properties']]
-
-    # # ------ GUI Defintion ------ #
-    # layout = [
-        # [sg.Menu(menu_def, tearoff=False, pad=(200, 1))],
-        # [sg.Text('Right click me for a right click menu example')],
-        # [sg.Output(size=(60, 20))],
-        # [sg.ButtonMenu('ButtonMenu',  right_click_menu, key='-BMENU-'), sg.Button('Plain Button')],
-    # ]
-
-    # window = sg.Window("Windows-like program",
-                       # layout,
-                       # default_element_size=(12, 1),
-                       # default_button_element_size=(12, 1),
-                       # right_click_menu=right_click_menu)
-
-    # # ------ Loop & Process button menu choices ------ #
-    # while True:
-        # event, values = window.read()
-        # if event in (None, 'Exit'):
-            # break
-        # print(event, values)
-        # # ------ Process menu choices ------ #
-        # if event == 'About...':
-            # window.disappear()
-            # sg.popup('About this program', 'Version 1.0',
-                     # 'PySimpleGUI Version', sg.version,  grab_anywhere=True)
-            # window.reappear()
-        # elif event == 'Open':
-            # filename = sg.popup_get_file('file to open', no_window=True)
-            # print(filename)
-        # elif event == 'Properties':
-            # second_window()
-
-    # window.close()
 
 #=======================================================================
 def event_menu(event, db_TODAY):
@@ -459,11 +474,15 @@ def event_menu(event, db_TODAY):
         print('rd_hst_FUT_t ...')
         rq = db_TODAY.op(rd_hst_FUT_t = True)
     #-------------------------------------------------------------------
-    if event == 'rd_hst_FUT'  :
-        print('rd_hst_FUT ...')
-        rq = db_TODAY.op(rd_hst_FUT = True)
+    if event == 'update_data_FUT'  :
+        print('update_data_FUT ...')
+        db_TODAY.dt_file = 0
+        rq = db_TODAY.op(update_data_FUT = True)
     #-------------------------------------------------------------------
-
+    if event == 'update_data_HST'  :
+        print('update_data_HST ...')
+        db_TODAY.dt_file = 0
+        rq = db_TODAY.op(update_data_HST = True,  rd_hst_FUT_t = True)
     #-------------------------------------------------------------------
     if event == 'prn_cfg_SOFT'  :
         print('prn_cfg_SOFT ...')
@@ -489,12 +508,6 @@ def event_menu(event, db_TODAY):
         print('prn_arr_FUT_t ...')
         rq = db_TODAY.prn(p_arr_FUT_t = True)
     #-------------------------------------------------------------------
-    if event == 'prn_arr_FUT'  :
-        print('prn_arr_FUT ...')
-        rq = db_TODAY.prn(p_arr_fut = True)
-    #-------------------------------------------------------------------
-
-    #-------------------------------------------------------------------
 
     print('rq = ', rq)
 #=======================================================================
@@ -508,9 +521,9 @@ def main():
         lg_FILE  = Class_LOGGER(    c_dir + '\\LOG\\fut_logger.log')
         lg_FILE.wr_log_info('START')
         rq = db_TODAY.op(
-                        rd_cfg_SOFT  = True,
-                        rd_term_FUT  = True,
-                        rd_term_HST  = True,
+                        rd_cfg_SOFT     = True,
+                        update_data_FUT = True,
+                        update_data_HST = True,
                         )
         if rq[0] != 0 : #prn_rq('INIT rd_cfg_SOFT TODAY', rq)
             print('INIT = > ', rq[1])
@@ -538,15 +551,14 @@ def main():
                 ['auto','manual',], ],
             ['READ',
                 ['rd_term_FUT',  'rd_term_HST',   '---',
-                 'rd_data_FUT',  'rd_hst_FUT_t',  'rd_hst_FUT', ],],
-            ['WRITE',
-                ['wr_data_FUT',  'wr_hist_FUT_t', 'wr hist_FUT',],],
+                 'rd_data_FUT',  'rd_hst_FUT_t',  ],],
+            ['UPDATE',
+                ['update_data_FUT',  'update_data_HST', ],],
             ['PRINT',
                 ['prn_cfg_SOFT',   '---',
-                'prn_ar_FILE',   'prn_hist_in_FILE', '---',
-                'prn_data_FUT',  '---',
-                'prn_hst_FUT_t', 'prn_arr_FUT_t',    '---',
-                'prn_arr_FUT',  ],],
+                 'prn_ar_FILE',   'prn_hist_in_FILE', '---',
+                 'prn_data_FUT',  '---',
+                 'prn_hst_FUT_t', 'prn_arr_FUT_t', ],],
             ['Exit', 'Exit']
         ]
         #=======================================================================
@@ -562,7 +574,7 @@ def main():
         window.FindElement('txt_data').Update(''.join(def_txt))
         break
 
-    tm_out, mode, frm = 2500, 'auto', '%d.%m.%Y %H:%M:%S'
+    tm_out, mode, frm = 360000, 'manual', '%d.%m.%Y %H:%M:%S'
     stts  = time.strftime(frm, time.localtime()) + '\n' + 'event = manual'
     window.FindElement('txt_status').Update(stts)
 
@@ -580,8 +592,8 @@ def main():
         #---------------------------------------------------------------
         if event == '__TIMEOUT__':
             rq = db_TODAY.op(
-                        rd_term_FUT  = True,
-                        rd_term_HST  = True,
+                        update_data_FUT  = True,
+                        update_data_HST  = True,
                         )
             if rq[0] == 0:
                 #stroki.append('OK')
