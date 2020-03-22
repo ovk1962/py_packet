@@ -151,6 +151,7 @@ class Class_DB():
 
     def op(self,
             rd_cfg_SOFT  = False,
+            wr_cfg_SOFT  = False,
 
             update_data_FUT = False,
             update_data_HST = False,
@@ -165,6 +166,8 @@ class Class_DB():
 
             wr_hist_FUT_t = False,
             rd_hst_FUT_t  = False,
+
+            upload_HST  = False,
 
             ):
         r_op_today = []
@@ -189,6 +192,17 @@ class Class_DB():
                     frm = '%Y-%m-%d %H:%M:%S'
                     self.dt_start_sec = \
                         int(datetime.strptime(self.dt_start, frm).replace(tzinfo=timezone.utc).timestamp())
+
+                if wr_cfg_SOFT:
+                    cfg = []
+                    cfg.append(['titul',          self.titul])
+                    cfg.append(['path_file_DATA', self.path_file_DATA])
+                    cfg.append(['path_file_HIST', self.path_file_HIST])
+                    cfg.append(['dt_start',       self.dt_start])
+                    cfg.append(['path_file_TXT',  self.path_file_TXT])
+                    self.cur.execute('DELETE FROM ' + 'cfg_SOFT')
+                    self.cur.executemany('INSERT INTO ' + 'cfg_SOFT' + ' VALUES' + '(?,?)', cfg)
+                    self.conn.commit()
 
                 if update_data_FUT:
                     #--- check file cntr.file_path_DATA ----------------------------
@@ -445,6 +459,23 @@ class Class_DB():
                         if len(self.arr_fut_t) % 100 == 0:  print(len(self.arr_fut_t), end='\r')
                     print('finish rd_hst_FUT_t => !', str(len(self.arr_fut_t)))
 
+                if upload_HST:
+                    print('len(self.hst_fut_t) = ', len(self.hst_fut_t))
+                    if len(self.hst_fut_t) > 0:
+                        # change 2020-00-00 to  for name FILE
+                        print(self.path_file_HIST)
+                        buf_name = self.hst_fut_t[-1][1][6:10] + '-'
+                        buf_name += self.hst_fut_t[-1][1][3:5] + '-'
+                        buf_name += self.hst_fut_t[-1][1][0:2]
+                        #buf_name = 'c:\\' + buf_name + '_hist_log_ALFA.txt'
+                        buf_name = self.path_file_TXT.split('*')[0] + buf_name + self.path_file_TXT.split('*')[1]
+                        print(buf_name)
+                        with open(buf_name, 'w') as file_HIST:
+                            for item in self.hst_fut_t:
+                                file_HIST.write(item[1]+'\n')
+                    else:
+                        print('self.hst_fut_t IS empty')
+
         except Exception as ex:
             r_op_today = [1, 'op_today / ' + str(ex)]
 
@@ -508,13 +539,21 @@ def event_menu(event, db_TODAY):
         print('prn_arr_FUT_t ...')
         rq = db_TODAY.prn(p_arr_FUT_t = True)
     #-------------------------------------------------------------------
+    if event == 'upload_HST'  :
+        print('upload_HST ...')
+        rq = db_TODAY.op(upload_HST = True)
+    #-------------------------------------------------------------------
+    if event == 'update_cfg_SOFT'  :
+        print('update_cfg_SOFT ...')
+        rq = db_TODAY.op(rd_cfg_SOFT = True)
+
 
     print('rq = ', rq)
 #=======================================================================
 def main():
     while True:  # init db_TODAY ---------------------------------------
-        sg.theme('LightGreen')
-        sg.set_options(element_padding=(0, 0))
+        #sg.theme('LightGreen')
+        #sg.set_options(element_padding=(0, 0))
         c_dir    = os.path.abspath(os.curdir)
         db_TODAY = Class_DB(c_dir + '\\DB\\db_today.sqlite')
         #db_ARCHV = Class_term_TODAY(c_dir + '\\DB\\db_archv.sqlite')
@@ -539,12 +578,12 @@ def main():
         #=======================================================================
         menu_def = [
             ['Mode',
-                ['auto','manual',], ],
+                ['auto','manual','upload_HST',], ],
             ['READ',
                 ['rd_term_FUT',  'rd_term_HST',   '---',
                  'rd_data_FUT',  'rd_hst_FUT_t',  ],],
             ['UPDATE',
-                ['update_data_FUT',  'update_data_HST', ],],
+                ['update_cfg_SOFT',  'update_data_FUT', 'update_data_HST',],],
             ['PRINT',
                 ['prn_cfg_SOFT',   '---',
                  'prn_ar_FILE',   'prn_hist_in_FILE', '---',
@@ -571,6 +610,7 @@ def main():
     stts  = time.strftime(frm, time.localtime()) + '\n' + 'event = manual'
     window.FindElement('txt_status').Update(stts)
 
+    win_CFG_active = False
     while True:  # MAIN cycle ------------------------------------------
         stroki = []
         event, values = window.Read(timeout = tm_out )
@@ -596,7 +636,47 @@ def main():
             else:
                 stroki.append(rq[1])
             stroki.append('PROFIT  => ' + str(db_TODAY.account.arr[Class_ACCOUNT.prf]))
+        #---------------------------------------------------------------
+        if event == 'update_cfg_SOFT' and not win_CFG_active:
+            win_CFG_active = True
+            window.Hide()
 
+            d = db_TODAY
+            layout2 = [
+                        [sg.Text('titul',          size=(15, 1)), sg.Input(d.titul, key='-titul-') ],
+                        [sg.Text('path_file_DATA', size=(15, 1)), sg.Input(d.path_file_DATA, key='-path_DATA-'), sg.FileBrowse()],
+                        [sg.Text('path_file_HIST', size=(15, 1)), sg.Input(d.path_file_HIST, key='-path_HIST-'), sg.FileBrowse()],
+                        [sg.Text('dt_start',       size=(15, 1)), sg.Input(d.dt_start, key='-dt_start-')],
+                        [sg.Text('path_file_TXT',  size=(15, 1)), sg.Input(d.path_file_TXT, key='-path_TXT-'),   sg.FileBrowse()],
+                        [sg.OK(),  sg.T(' '), sg.Cancel()]
+                       ]
+            win_CFG = sg.Window('Update TABLE cfg_SOFT').Layout(layout2)
+            win_CFG.Finalize()
+            while True:
+                ev_win_CFG, vals_win_CFG = win_CFG.Read()
+                print(ev_win_CFG, vals_win_CFG)
+                #-------------------------------------------------------
+                if ev_win_CFG is None or ev_win_CFG == 'Cancel':
+                    win_CFG.Close()
+                    win_CFG_active = False
+                    window.UnHide()
+                    break
+                #-------------------------------------------------------
+                if ev_win_CFG == 'OK':
+                    db_TODAY.titul          = vals_win_CFG['-titul-']
+                    db_TODAY.path_file_DATA = vals_win_CFG['-path_DATA-']
+                    db_TODAY.path_file_HIST = vals_win_CFG['-path_HIST-']
+                    db_TODAY.dt_start       = vals_win_CFG['-dt_start-']
+                    db_TODAY.path_file_TXT  = vals_win_CFG['-path_TXT-']
+
+                    print(db_TODAY.titul)
+                    print(db_TODAY.path_file_DATA)
+                    print(db_TODAY.path_file_HIST)
+                    print(db_TODAY.dt_start)
+                    print(db_TODAY.path_file_TXT)
+
+                    rq = db_TODAY.op(wr_cfg_SOFT = True)
+                    print('rq = ', rq)
         #---------------------------------------------------------------
         window.FindElement('txt_data').Update('\n'.join(stroki))
         stts  = time.strftime(frm, time.localtime()) + '\n'
