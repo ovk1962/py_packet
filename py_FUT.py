@@ -524,21 +524,12 @@ def main():
                         rd_cfg_SOFT     = True,
                         update_data_FUT = True,
                         update_data_HST = True,
+                        rd_hst_FUT_t    = True,
                         )
         if rq[0] != 0 : #prn_rq('INIT rd_cfg_SOFT TODAY', rq)
             print('INIT = > ', rq[1])
         else:
             print('INIT cfg_term_data_hist TODAY = > ', rq)
-
-        # rq = db_TODAY.prn(
-                        # p_cfg_SOFT  = True,
-                        # p_ar_FILE = True,
-                        # p_data_FUT = True,
-                        # p_hist_in_file = True,
-
-                        # )
-        # if rq[0] != 0 :
-            # print('print INIT = > ', rq[1])
 
         break
 
@@ -567,7 +558,9 @@ def main():
                     [sg.Menu(menu_def, tearoff=False, key='menu_def')],
                     [sg.Multiline( default_text=''.join(def_txt),
                         size=(50, 5), key='txt_data', autoscroll=False, focus=False),],
-                    [sg.T('',size=(60,2), font='Helvetica 8', key='txt_status'), sg.Quit(auto_size_button=True)],
+                    [sg.T('',size=(60,2), font='Helvetica 8', key='txt_status'),
+                     #sg.Quit(auto_size_button=True)
+                     ],
                  ]
         sg.SetOptions(element_padding=(0,0))
         window = sg.Window('Test db_today', grab_anywhere=True).Layout(layout).Finalize()
