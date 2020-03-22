@@ -9,7 +9,7 @@
 import os, sys, math, time, sqlite3, logging
 from datetime import datetime, timezone
 import math
-from ipdb import set_trace as bp    # to set breakpoints just -> bp()
+#from ipdb import set_trace as bp    # to set breakpoints just -> bp()
 import PySimpleGUI as sg
 #=======================================================================
 class Class_LOGGER():
@@ -602,7 +602,7 @@ def main():
                      ],
                  ]
         sg.SetOptions(element_padding=(0,0))
-        window = sg.Window('Test db_today', grab_anywhere=True).Layout(layout).Finalize()
+        window = sg.Window(db_TODAY.titul, grab_anywhere=True).Layout(layout).Finalize()
         window.FindElement('txt_data').Update(''.join(def_txt))
         break
 
