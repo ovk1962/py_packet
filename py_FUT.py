@@ -63,9 +63,10 @@ class Class_FUT():
         return  '{} {}'.format(self.sP_code,  str([int(k) for k in self.arr]))
 #=======================================================================
 class Class_DB():
-    def __init__(self, path_db):
-        self.path_db = path_db
-        self.table_db = []
+    def __init__(self, path_db, path_db_arch):
+        self.path_db_today = path_db
+        self.path_db_arch  = path_db_arch
+        #self.table_db = []
         self.conn = ''
         self.cur  = ''
         # cfg_soft
@@ -123,7 +124,7 @@ class Class_DB():
                 print(frm.format('dt_start_sec',   str(self.dt_start_sec)))
                 print(frm.format('path_file_DATA', self.path_file_DATA))
                 print(frm.format('path_file_HIST', self.path_file_HIST))
-                print(frm.format('path_db_today',  self.path_db))
+                print(frm.format('path_db_today',  self.path_db_today))
 
             if p_ar_FILE:
                 for i in self.ar_file:   print(i)
@@ -171,7 +172,7 @@ class Class_DB():
 
             ):
         r_op_today = []
-        self.conn = sqlite3.connect(self.path_db)
+        self.conn = sqlite3.connect(self.path_db_today)
         try:
             with self.conn:
                 r_op_today = [0, 'ok']
@@ -555,9 +556,9 @@ def main():
         #sg.theme('LightGreen')
         #sg.set_options(element_padding=(0, 0))
         c_dir    = os.path.abspath(os.curdir)
-        db_TODAY = Class_DB(c_dir + '\\DB\\db_today.sqlite')
+        db_TODAY = Class_DB(c_dir + '\\DB\\db_today.sqlite', c_dir + '\\DB\\db_archv.sqlite')
         #db_ARCHV = Class_term_TODAY(c_dir + '\\DB\\db_archv.sqlite')
-        lg_FILE  = Class_LOGGER(    c_dir + '\\LOG\\fut_logger.log')
+        lg_FILE  = Class_LOGGER(c_dir + '\\LOG\\fut_logger.log')
         lg_FILE.wr_log_info('START')
         rq = db_TODAY.op(
                         rd_cfg_SOFT     = True,
@@ -627,6 +628,7 @@ def main():
             rq = db_TODAY.op(
                         update_data_FUT  = True,
                         update_data_HST  = True,
+                        rd_hst_FUT_t = True,
                         )
             if rq[0] == 0:
                 #stroki.append('OK')
