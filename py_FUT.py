@@ -95,7 +95,7 @@ class Class_DB():
         #self.sec_18_45 = 67500      # seconds from 00:00 to 18:45
         self.sec_18_45 = 67500      # seconds from 00:00 to 18:45
         self.sec_19_05 = 68700      # seconds from 00:00 to 19:05
-        self.sec_23_45 = 85500      # seconds from 00:00 to 23:45
+        self.sec_23_50 = 85800      # seconds from 00:00 to 23:50
 
     def prn_arr(self, name_arr, arr):
         print('len(' + name_arr + ')   => ' + str(len(arr)) + '\n' )
@@ -168,6 +168,7 @@ class Class_DB():
             wr_hist_FUT_t = False,
             rd_hst_FUT_t  = False,
 
+            check_HST   = False,
             upload_HST  = False,
 
             ):
@@ -297,7 +298,7 @@ class Class_DB():
                             (cur_time > self.sec_14_05  and # from 14:05 to 18:45
                             cur_time < self.sec_18_45) or
                             (cur_time > self.sec_19_05  and # from 19:05 to 23:45
-                            cur_time < self.sec_23_45)):
+                            cur_time < self.sec_23_50)):
                                 self.hist_in_file.append(item)
                     print('finish rd_term_HST!  => ', str(len(self.hist_in_file)))
                     #--- update table 'hist_FUT_today' ------------------------------
@@ -387,7 +388,7 @@ class Class_DB():
                             (cur_time > self.sec_14_05  and # from 14:05 to 18:45
                             cur_time < self.sec_18_45) or
                             (cur_time > self.sec_19_05  and # from 19:05 to 23:45
-                            cur_time < self.sec_23_45)):
+                            cur_time < self.sec_23_50)):
                                 self.hist_in_file.append(item)
                     print('finish rd_term_HST!  => ', str(len(self.hist_in_file)))
 
@@ -477,6 +478,45 @@ class Class_DB():
                     else:
                         print('self.hst_fut_t IS empty')
 
+                if check_HST:
+                    print('start check_HST!' )
+                    #--- check file cntr.file_path_DATA ----------------------------
+                    if not os.path.isfile(self.path_file_HIST):
+                        return [1, 'can not find file']
+                    buf_stat = os.stat(self.path_file_HIST)
+                    #--- check size of file ----------------------------------------
+                    if buf_stat.st_size == 0:
+                        return [2, 'size HIST file is NULL']
+                    #--- read HIST file --------------------------------------------
+                    buf_str = []
+                    with open(self.path_file_HIST,"r") as fh:
+                        buf_str = fh.read().splitlines()
+                    #--- check size of list/file -----------------------------------
+                    if len(buf_str) == 0:
+                        return [3, 'the size buf_str(HIST) is NULL ']
+                    #--- check size of list/file -----------------------------------
+                    self.hst_fut_t = []
+                    #for item in buf_str:
+                    for i, item in enumerate(buf_str):
+                        term_dt = item.split('|')[0]
+                        try:
+                            dtt = datetime.strptime(str(term_dt), "%d.%m.%Y %H:%M:%S")
+                            cur_time = dtt.second + 60 * dtt.minute + 60 * 60 * dtt.hour
+                            if (
+                                (cur_time > self.sec_10_00  and # from 10:00 to 14:00
+                                cur_time < self.sec_14_00) or
+                                (cur_time > self.sec_14_05  and # from 14:05 to 18:45
+                                cur_time < self.sec_18_45) or
+                                (cur_time > self.sec_19_05  and # from 19:05 to 23:45
+                                cur_time < self.sec_23_50)):
+                                    self.hst_fut_t.append(item)
+                        except Exception as ex:
+                            print('error string is ',i)
+                    with open(self.path_file_HIST + '.txt', 'w') as file_HIST:
+                        for item in self.hst_fut_t:
+                            file_HIST.write(item+'\n')
+
+
         except Exception as ex:
             r_op_today = [1, 'op_today / ' + str(ex)]
 
@@ -547,7 +587,10 @@ def event_menu(event, db_TODAY):
     if event == 'update_cfg_SOFT'  :
         print('update_cfg_SOFT ...')
         rq = db_TODAY.op(rd_cfg_SOFT = True)
-
+    #-------------------------------------------------------------------
+    if event == 'check_HST'  :
+        print('check_HST ...')
+        rq = db_TODAY.op(check_HST = True)
 
     print('rq = ', rq)
 #=======================================================================
@@ -579,7 +622,7 @@ def main():
         #=======================================================================
         menu_def = [
             ['Mode',
-                ['auto','manual','upload_HST',], ],
+                ['auto','manual','check_HST','upload_HST',], ],
             ['READ',
                 ['rd_term_FUT',  'rd_term_HST',   '---',
                  'rd_data_FUT',  'rd_hst_FUT_t',  ],],
