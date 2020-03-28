@@ -89,18 +89,27 @@ class Class_DB():
         self.dt_fut   = []               # list of Class_FUT()
         self.account  = Class_ACCOUNT()  # obj Class_ACCOUNT()
         #
-        self.sec_10_00 = 36000      # seconds from 00:00 to 10:00
-        self.sec_14_00 = 50410      # seconds from 00:00 to 14:00
-        self.sec_14_05 = 50690      # seconds from 00:00 to 14:05
-        #self.sec_18_45 = 67500      # seconds from 00:00 to 18:45
-        self.sec_18_45 = 67500      # seconds from 00:00 to 18:45
-        self.sec_19_05 = 68700      # seconds from 00:00 to 19:05
-        self.sec_23_50 = 85800      # seconds from 00:00 to 23:50
+
+    def check_MARKET_time(self,term_dt):
+        try:
+            dtt = datetime.strptime(term_dt, "%d.%m.%Y %H:%M:%S")
+            cur_time = dtt.second + 60 * dtt.minute + 60 * 60 * dtt.hour
+            if (
+                (cur_time > 35995  and # from 09:59:55 to 14:00:05
+                cur_time < 50415) or   #
+                (cur_time > 50685  and # from 14:04:55 to 18:45:05
+                cur_time < 67505) or
+                (cur_time > 68695  and # from 19:04:55 to 23:50:05
+                cur_time < 85805)):
+                    return True
+        except Exception as ex:
+            print('ERROR term_dt = ', term_dt)
+        return False
 
     def prn_arr(self, name_arr, arr):
         print('len(' + name_arr + ')   => ' + str(len(arr)) + '\n' )
         if len(arr) > 4:
-            for i in [0,1,2]: print(arr[i],'\n')
+            for i in [0,1]: print(arr[i],'\n')
             print('+++++++++++++++++++++++++\n')
             for i in [-2,-1]: print(arr[i],'\n')
         else:
@@ -168,9 +177,8 @@ class Class_DB():
             wr_hist_FUT_t = False,
             rd_hst_FUT_t  = False,
 
-            check_HST   = False,
-            upload_HST  = False,
-
+            check_HST_t   = False,
+            upload_HST_t  = False,
             ):
         r_op_today = []
         self.conn = sqlite3.connect(self.path_db_today)
@@ -263,7 +271,7 @@ class Class_DB():
                             self.dt_fut.append(b_fut)
 
                 if update_data_HST:
-                    print('start rd_term_HST!  => ', str(len(self.hist_in_file)))
+                    print('start update_data_HST!  => ', str(len(self.hist_in_file)))
                     #--- check file cntr.file_path_DATA ----------------------------
                     if not os.path.isfile(self.path_file_HIST):
                         err_msg = 'can not find file => ' + self.path_file_HIST
@@ -288,19 +296,14 @@ class Class_DB():
                     #
                     #--- check MARKET time from 10:00 to 23:45 ---------------------
                     self.hist_in_file = []
-                    for item in buf_str:
+                    for i, item in enumerate(buf_str):
                         term_dt = item.split('|')[0]
-                        dtt = datetime.strptime(str(term_dt), "%d.%m.%Y %H:%M:%S")
-                        cur_time = dtt.second + 60 * dtt.minute + 60 * 60 * dtt.hour
-                        if (
-                            (cur_time > self.sec_10_00  and # from 10:00 to 14:00
-                            cur_time < self.sec_14_00) or
-                            (cur_time > self.sec_14_05  and # from 14:05 to 18:45
-                            cur_time < self.sec_18_45) or
-                            (cur_time > self.sec_19_05  and # from 19:05 to 23:45
-                            cur_time < self.sec_23_50)):
-                                self.hist_in_file.append(item)
-                    print('finish rd_term_HST!  => ', str(len(self.hist_in_file)))
+                        if self.check_MARKET_time(term_dt):
+                            self.hist_in_file.append(item)
+                        else:
+                            print(term_dt, ' => error string is ',i)
+
+                    print('finish update_data_HST!  => ', str(len(self.hist_in_file)))
                     #--- update table 'hist_FUT_today' ------------------------------
                     buf_list =[]
                     pAsk, pBid = range(2)
@@ -378,18 +381,12 @@ class Class_DB():
                     #
                     #--- check MARKET time from 10:00 to 23:45 ---------------------
                     self.hist_in_file = []
-                    for item in buf_str:
+                    for i, item in enumerate(buf_str):
                         term_dt = item.split('|')[0]
-                        dtt = datetime.strptime(str(term_dt), "%d.%m.%Y %H:%M:%S")
-                        cur_time = dtt.second + 60 * dtt.minute + 60 * 60 * dtt.hour
-                        if (
-                            (cur_time > self.sec_10_00  and # from 10:00 to 14:00
-                            cur_time < self.sec_14_00) or
-                            (cur_time > self.sec_14_05  and # from 14:05 to 18:45
-                            cur_time < self.sec_18_45) or
-                            (cur_time > self.sec_19_05  and # from 19:05 to 23:45
-                            cur_time < self.sec_23_50)):
-                                self.hist_in_file.append(item)
+                        if self.check_MARKET_time(term_dt):
+                            self.hist_in_file.append(item)
+                        else:
+                            print('error string is ',i)
                     print('finish rd_term_HST!  => ', str(len(self.hist_in_file)))
 
                 if wr_data_FUT:
@@ -461,7 +458,7 @@ class Class_DB():
                         if len(self.arr_fut_t) % 100 == 0:  print(len(self.arr_fut_t), end='\r')
                     print('finish rd_hst_FUT_t => !', str(len(self.arr_fut_t)))
 
-                if upload_HST:
+                if upload_HST_t:
                     print('len(self.hst_fut_t) = ', len(self.hst_fut_t))
                     if len(self.hst_fut_t) > 0:
                         # change 2020-00-00 to  for name FILE
@@ -469,7 +466,6 @@ class Class_DB():
                         buf_name = self.hst_fut_t[-1][1][6:10] + '-'
                         buf_name += self.hst_fut_t[-1][1][3:5] + '-'
                         buf_name += self.hst_fut_t[-1][1][0:2]
-                        #buf_name = 'c:\\' + buf_name + '_hist_log_ALFA.txt'
                         buf_name = self.path_file_TXT.split('*')[0] + buf_name + self.path_file_TXT.split('*')[1]
                         print(buf_name)
                         with open(buf_name, 'w') as file_HIST:
@@ -478,8 +474,8 @@ class Class_DB():
                     else:
                         print('self.hst_fut_t IS empty')
 
-                if check_HST:
-                    print('start check_HST!' )
+                if check_HST_t:
+                    print('start check_HST_t!' )
                     #--- check file cntr.file_path_DATA ----------------------------
                     if not os.path.isfile(self.path_file_HIST):
                         return [1, 'can not find file']
@@ -495,35 +491,22 @@ class Class_DB():
                     if len(buf_str) == 0:
                         return [3, 'the size buf_str(HIST) is NULL ']
                     #--- check size of list/file -----------------------------------
-                    self.hst_fut_t = []
+                    buf_hst_fut_t = []
                     #for item in buf_str:
                     for i, item in enumerate(buf_str):
                         term_dt = item.split('|')[0]
-                        try:
-                            dtt = datetime.strptime(str(term_dt), "%d.%m.%Y %H:%M:%S")
-                            cur_time = dtt.second + 60 * dtt.minute + 60 * 60 * dtt.hour
-                            if (
-                                (cur_time > self.sec_10_00  and # from 10:00 to 14:00
-                                cur_time < self.sec_14_00) or
-                                (cur_time > self.sec_14_05  and # from 14:05 to 18:45
-                                cur_time < self.sec_18_45) or
-                                (cur_time > self.sec_19_05  and # from 19:05 to 23:45
-                                cur_time < self.sec_23_50)):
-                                    self.hst_fut_t.append(item)
-                        except Exception as ex:
+                        if self.check_MARKET_time(term_dt):
+                            buf_hst_fut_t.append(item)
+                        else:
                             print('error string is ',i)
                     with open(self.path_file_HIST + '.txt', 'w') as file_HIST:
-                        for item in self.hst_fut_t:
+                        for item in buf_hst_fut_t:
                             file_HIST.write(item+'\n')
-
 
         except Exception as ex:
             r_op_today = [1, 'op_today / ' + str(ex)]
 
         return r_op_today
-#=======================================================================
-
-
 #=======================================================================
 def event_menu(event, db_TODAY):
     rq = [0,event]
@@ -580,27 +563,41 @@ def event_menu(event, db_TODAY):
         print('prn_arr_FUT_t ...')
         rq = db_TODAY.prn(p_arr_FUT_t = True)
     #-------------------------------------------------------------------
-    if event == 'upload_HST'  :
-        print('upload_HST ...')
-        rq = db_TODAY.op(upload_HST = True)
+    if event == 'upload_HST_t'  :
+        print('upload_HST_t ...')
+        rq = db_TODAY.op(upload_HST_t = True)
     #-------------------------------------------------------------------
     if event == 'update_cfg_SOFT'  :
         print('update_cfg_SOFT ...')
         rq = db_TODAY.op(rd_cfg_SOFT = True)
     #-------------------------------------------------------------------
-    if event == 'check_HST'  :
-        print('check_HST ...')
-        rq = db_TODAY.op(check_HST = True)
+    if event == 'check_HST_t'  :
+        print('check_HST_t ...')
+        rq = db_TODAY.op(check_HST_t = True)
 
     print('rq = ', rq)
 #=======================================================================
 def main():
+    menu_def = [
+        ['Mode',
+            ['auto','manual','check_HST_t','upload_HST_t','add_HST_arch'], ],
+        ['READ',
+            ['rd_term_FUT',  'rd_term_HST',   '---',
+             'rd_data_FUT',  'rd_hst_FUT_t',  ],],
+        ['UPDATE',
+            ['update_cfg_SOFT',  'update_data_FUT', 'update_data_HST',],],
+        ['PRINT',
+            ['prn_cfg_SOFT',   '---',
+             'prn_ar_FILE',   'prn_hist_in_FILE', '---',
+             'prn_data_FUT',  '---',
+             'prn_hst_FUT_t', 'prn_arr_FUT_t', ],],
+        ['Exit', 'Exit']
+    ]
     while True:  # init db_TODAY ---------------------------------------
         #sg.theme('LightGreen')
         #sg.set_options(element_padding=(0, 0))
         c_dir    = os.path.abspath(os.curdir)
-        db_TODAY = Class_DB(c_dir + '\\DB\\db_today.sqlite', c_dir + '\\DB\\db_archv.sqlite')
-        #db_ARCHV = Class_term_TODAY(c_dir + '\\DB\\db_archv.sqlite')
+        db_TODAY = Class_DB(c_dir + '\\DB\\db_today.sqlite', c_dir + '\\DB\\db_archiv.sqlite')
         lg_FILE  = Class_LOGGER(c_dir + '\\LOG\\fut_logger.log')
         lg_FILE.wr_log_info('START')
         rq = db_TODAY.op(
@@ -619,22 +616,7 @@ def main():
     while True:  # init MENU -------------------------------------------
         def_txt, frm = [], '{: <10}  => {: ^15}\n'
         def_txt.append(frm.format('db_today' , '\\DB\\db_today.sqlite'))
-        #=======================================================================
-        menu_def = [
-            ['Mode',
-                ['auto','manual','check_HST','upload_HST',], ],
-            ['READ',
-                ['rd_term_FUT',  'rd_term_HST',   '---',
-                 'rd_data_FUT',  'rd_hst_FUT_t',  ],],
-            ['UPDATE',
-                ['update_cfg_SOFT',  'update_data_FUT', 'update_data_HST',],],
-            ['PRINT',
-                ['prn_cfg_SOFT',   '---',
-                 'prn_ar_FILE',   'prn_hist_in_FILE', '---',
-                 'prn_data_FUT',  '---',
-                 'prn_hst_FUT_t', 'prn_arr_FUT_t', ],],
-            ['Exit', 'Exit']
-        ]
+        def_txt.append(frm.format('db_archv' , '\\DB\\db_archv.sqlite'))
         #=======================================================================
         # Display data
         layout = [
@@ -655,6 +637,7 @@ def main():
     window.FindElement('txt_status').Update(stts)
 
     win_CFG_active = False
+    win_UPD_active = False
     while True:  # MAIN cycle ------------------------------------------
         stroki = []
         event, values = window.Read(timeout = tm_out )
@@ -684,6 +667,7 @@ def main():
         #---------------------------------------------------------------
         if event == 'update_cfg_SOFT' and not win_CFG_active:
             win_CFG_active = True
+            win_UPD_active = False
             window.Hide()
 
             d = db_TODAY
@@ -704,24 +688,76 @@ def main():
                 if ev_win_CFG is None or ev_win_CFG == 'Cancel':
                     win_CFG.Close()
                     win_CFG_active = False
+                    win_UPD_active = False
                     window.UnHide()
                     break
                 #-------------------------------------------------------
                 if ev_win_CFG == 'OK':
-                    db_TODAY.titul          = vals_win_CFG['-titul-']
-                    db_TODAY.path_file_DATA = vals_win_CFG['-path_DATA-']
-                    db_TODAY.path_file_HIST = vals_win_CFG['-path_HIST-']
-                    db_TODAY.dt_start       = vals_win_CFG['-dt_start-']
-                    db_TODAY.path_file_TXT  = vals_win_CFG['-path_TXT-']
+                    d.titul          = vals_win_CFG['-titul-']
+                    d.path_file_DATA = vals_win_CFG['-path_DATA-']
+                    d.path_file_HIST = vals_win_CFG['-path_HIST-']
+                    d.dt_start       = vals_win_CFG['-dt_start-']
+                    d.path_file_TXT  = vals_win_CFG['-path_TXT-']
 
-                    print(db_TODAY.titul)
-                    print(db_TODAY.path_file_DATA)
-                    print(db_TODAY.path_file_HIST)
-                    print(db_TODAY.dt_start)
-                    print(db_TODAY.path_file_TXT)
+                    print(d.titul)
+                    print(d.path_file_DATA)
+                    print(d.path_file_HIST)
+                    print(d.dt_start)
+                    print(d.path_file_TXT)
 
-                    rq = db_TODAY.op(wr_cfg_SOFT = True)
+                    rq = d.op(wr_cfg_SOFT = True)
                     print('rq = ', rq)
+
+        #---------------------------------------------------------------
+        if event == 'add_HST_arch' and not win_UPD_active:
+            win_CFG_active = False
+            win_UPD_active = True
+            window.Hide()
+
+            d = db_TODAY
+            layout3 = [
+                        [sg.Text('path_file_TXT',  size=(15, 1)), sg.Input(d.path_file_TXT, key='-path_TXT-'),   sg.FileBrowse()],
+                        [sg.OK(),  sg.T(' '), sg.Cancel()]
+                       ]
+            win_ARC = sg.Window('Update ARCHIV in TABLE hist_FUT').Layout(layout3)
+            win_ARC.Finalize()
+            while True:
+                ev_win_ARC, vals_win_ARC = win_ARC.Read()
+                print(ev_win_ARC, vals_win_ARC)
+                #-------------------------------------------------------
+                if ev_win_ARC is None or ev_win_ARC == 'Cancel':
+                    win_ARC.Close()
+                    win_CFG_active = False
+                    win_UPD_active = False
+                    window.UnHide()
+                    break
+                #-------------------------------------------------------
+                if ev_win_ARC == 'OK':
+                    #--- read HIST file --------------------------------
+                    buf_str = []
+                    with open(vals_win_ARC['-path_TXT-'],"r") as fh:
+                        buf_str = fh.read().splitlines()
+                    #--- update table 'hist_FUT' -----------------------
+                    buf_list =[]
+                    pAsk, pBid = range(2)
+                    for it in buf_str:
+                        dtt = datetime.strptime(it.split('|')[0], '%d.%m.%Y %H:%M:%S')
+                        ind_sec  = int(dtt.replace(tzinfo=timezone.utc).timestamp())
+                        buf_list.append([ind_sec, it])
+                    for i in [0,1]: print(buf_list[i],'\n')
+                    print('+++++++++++++++++++++++++\n')
+                    for i in [-2,-1]: print(buf_list[i],'\n')
+                    ''' rewrite data from table hist_FUT_today ------'''
+                    print(d.path_db_arch)
+                    conn = sqlite3.connect(d.path_db_arch)
+                    try:
+                        with conn:
+                            cur = conn.cursor()
+                            #self.cur.execute('DELETE FROM ' + 'hist_FUT_today')
+                            cur.executemany('INSERT INTO ' + 'hist_FUT' + ' VALUES' + '(?,?)', buf_list)
+                            conn.commit()
+                    except Exception as ex:
+                        print(ex)
         #---------------------------------------------------------------
         window.FindElement('txt_data').Update('\n'.join(stroki))
         stts  = time.strftime(frm, time.localtime()) + '\n'
