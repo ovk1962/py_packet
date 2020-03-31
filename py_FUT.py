@@ -597,7 +597,7 @@ def main():
         #sg.theme('LightGreen')
         #sg.set_options(element_padding=(0, 0))
         c_dir    = os.path.abspath(os.curdir)
-        db_TODAY = Class_DB(c_dir + '\\DB\\db_today.sqlite', c_dir + '\\DB\\db_archiv.sqlite')
+        db_TODAY = Class_DB(c_dir + '\\DB\\db_fut_t.sqlite', c_dir + '\\DB\\db_fut_a.sqlite')
         lg_FILE  = Class_LOGGER(c_dir + '\\LOG\\fut_logger.log')
         lg_FILE.wr_log_info('START')
         rq = db_TODAY.op(
@@ -717,7 +717,7 @@ def main():
             d = db_TODAY
             layout3 = [
                         [sg.Text('path_file_TXT',  size=(15, 1)), sg.Input(d.path_file_TXT, key='-path_TXT-'),   sg.FileBrowse()],
-                        [sg.OK(),  sg.T(' '), sg.Cancel()]
+                        [sg.OK(),  sg.T(' '),  sg.Button('DELETE'), sg.T(' '), sg.Cancel()]
                        ]
             win_ARC = sg.Window('Update ARCHIV in TABLE hist_FUT').Layout(layout3)
             win_ARC.Finalize()
@@ -755,6 +755,18 @@ def main():
                             cur = conn.cursor()
                             #self.cur.execute('DELETE FROM ' + 'hist_FUT_today')
                             cur.executemany('INSERT INTO ' + 'hist_FUT' + ' VALUES' + '(?,?)', buf_list)
+                            conn.commit()
+                    except Exception as ex:
+                        print(ex)
+                #-------------------------------------------------------
+                if ev_win_ARC == 'DELETE':
+                    print(d.path_db_arch,' - clear table hist_FUT')
+                    conn = sqlite3.connect(d.path_db_arch)
+                    try:
+                        with conn:
+                            cur = conn.cursor()
+                            cur.execute('DELETE FROM ' + 'hist_FUT')
+                            #cur.executemany('INSERT INTO ' + 'hist_FUT' + ' VALUES' + '(?,?)', buf_list)
                             conn.commit()
                     except Exception as ex:
                         print(ex)
