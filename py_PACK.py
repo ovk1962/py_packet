@@ -12,6 +12,44 @@ import math
 #from ipdb import set_trace as bp    # to set breakpoints just -> bp()
 import PySimpleGUI as sg
 #=======================================================================
+class Class_DB_SQLite():
+    def __init__(self, path_db):
+        self.path_db  = path_db
+
+    def read_tbl(self, nm_tbl):
+        print('start READ => ',self.path_db, nm_tbl)
+        try:
+            conn = sqlite3.connect(self.path_db)
+            with conn:
+                cur = conn.cursor()
+                #--- read  table   ---------------------------------
+                cur.execute('SELECT * from ' + nm_tbl)
+                arr = cur.fetchall()    # read LIST arr from TABLE nm_tbl
+        except Exception as ex:
+            return [1, ex]
+        print('stop READ')
+        return [0, arr]
+
+    def update_tbl(self, nm_tbl, buf_arr, val = ' VALUES(?,?)'):
+        try:
+            conn = sqlite3.connect(self.path_db)
+            with conn:
+                cur = conn.cursor()
+                #--- update table nm_tbl ---------------------------
+                cur.execute('DELETE FROM ' + nm_tbl)
+                cur.executemany('INSERT INTO ' + nm_tbl + val, buf_arr)
+                # if nm_tbl == 'cfg_PACK':
+                    # cur.executemany('INSERT INTO ' + nm_tbl + val, buf_arr)
+                # else:
+                    # cur.executemany('INSERT INTO ' + nm_tbl + val, ((i,) for i in buf_arr))
+                conn.commit()
+                #--- read  table   ---------------------------------
+                cur.execute('SELECT * from ' + nm_tbl)
+                arr = cur.fetchall()    # read LIST arr from TABLE nm_tbl
+        except Exception as ex:
+            return [1, ex]
+        return [0, arr]
+#=======================================================================
 class Class_LOGGER():
     def __init__(self, path_log):
         #self.logger = logging.getLogger(__name__)
@@ -52,14 +90,31 @@ class Class_str_FUT():
     def __str__(self):
         return 'ind_s = {}, dt = {}{} arr={}'.format(self.ind_s, self.dt, '\n', str(self.arr))
 #=======================================================================
-class Class_DB_FUT():
-    def __init__(self, path_db_fut, nm_tbl):
-        self.path_db_fut  = path_db_fut
-        self.nm_tbl       = nm_tbl
-
-        self.conn = ''
-        self.cur  = ''
-        self.arr_fut = []
+class Class_PACK():
+    def __init__(self):
+        c_dir    = os.path.abspath(os.curdir)
+        self.lg_FILE    = Class_LOGGER(c_dir + '\\LOG\\pack_logger.log')
+        self.db_FUT_arc = Class_DB_SQLite(c_dir + '\\DB\\db_fut_a.sqlite')
+        self.db_FUT_tod = Class_DB_SQLite(c_dir + '\\DB\\db_fut_t.sqlite')
+        self.db_PCK_arc = Class_DB_SQLite(c_dir + '\\DB\\db_pack_a.sqlite')
+        self.db_PCK_tod = Class_DB_SQLite(c_dir + '\\DB\\db_pack_t.sqlite')
+        # cfg_pack
+        self.nm   = []  # list NM   of packets
+        self.koef = []  # list KOEF of packets
+        self.nul  = []  # list NUL  of packets
+        self.ema  = []  # list EMA  of packets
+        #
+        self.hst_fut_t = []
+        self.arr_fut_t = []
+        self.hst_fut_a = []
+        self.arr_fut_a = []
+        #
+        self.hst_pck_t = []
+        self.arr_pck_t = []
+        self.hst_pck_a = []
+        self.arr_pck_a = []
+        #
+        self.lg_FILE.wr_log_info('START')
 
     def prn_arr(self, name_arr, arr):
         print('len(' + name_arr + ')   => ' + str(len(arr)) + '\n' )
@@ -70,22 +125,27 @@ class Class_DB_FUT():
         else:
             for item in arr: print(item, '\n')
 
-    def rd_hst(self):
-        r_rd_hst = []
-        self.conn = sqlite3.connect(self.path_db_fut)
-        try:
-            with self.conn:
-                r_rd_hst = [0, 'ok']
-                self.cur = self.conn.cursor()
+    def prn_cfg(self):
+            #-----------------------------------------------------------
+            frm = '{: ^5}{: ^15}{}{}{}'
+            print(frm.format('nm','nul','ema[]','        ','koef[]'))
+            for i, item in enumerate(self.nm):
+                print(frm.format(self.nm[i],
+                            str(self.nul[i]),
+                                self.ema[i], '   ',
+                                self.koef[i]))
 
-                print('start rd_hst_FUT! ')
-                self.cur.execute('SELECT * from ' + self.nm_tbl)
-                arr_buf = []    #self.hst_fut = []
-                arr_buf = self.cur.fetchall()    # read table name_tbl
-                print('len ' + self.nm_tbl +' = ', len(arr_buf))
-                self.arr_fut  = []
-                for cnt, i_str in enumerate(arr_buf):
-                    #arr_item = (i_str[1].replace(',', '.')).split('|')
+    def unpack_str_fut(self, hist_fut):
+        try:
+            arr_fut = []
+            for cnt, i_str in enumerate(hist_fut):
+                mn_pr, mn_cr = '', ''
+                if cnt == 0 :
+                    mn_pr, mn_cr = '', '00'
+                else:
+                    mn_pr = hist_fut[cnt-1][1][14:16]
+                    mn_cr = hist_fut[cnt-0][1][14:16]
+                if mn_pr != mn_cr:
                     s = Class_str_FUT()
                     s.ind_s = i_str[0]
                     s.dt    = i_str[1].split('|')[0].split(' ')
@@ -93,174 +153,252 @@ class Class_DB_FUT():
                     fAsk, fBid = range(2)
                     for item in (zip(arr_buf[::2], arr_buf[1::2])):
                         s.arr.append([float(item[fAsk]), float(item[fBid])])
-                    self.arr_fut.append(s)
-                    if len(self.arr_fut) % 1000 == 0:  print(len(self.arr_fut), end='\r')
-                print('finish rd_hst_FUT! => ', str(len(self.arr_fut)))
+                    arr_fut.append(s)
+                if len(arr_fut) % 100 == 0:  print(len(arr_fut), end='\r')
         except Exception as ex:
-            r_rd_hst = [1, 'op_HIST_FUT ' + self.nm_tbl + '   ' + str(ex)]
+            return [1, ex]
+        return [0, arr_fut]
 
-        return r_rd_hst
-#=======================================================================
-class Class_DB_PACK():
-    def __init__(self, path_db_pack, nm_tbl):
-        self.path_db_pack = path_db_pack
-        self.nm_tbl       = nm_tbl
-
-        # cfg_pack
-        self.nm   = []  # list NM   of packets
-        self.koef = []  # list KOEF of packets
-        self.nul  = []  # list NUL  of packets
-        self.ema  = []  # list EMA  of packets
-
-        self.arr_pk  = []  # list of objects Class_str_PCK()
-
-    def prn_cfg(self):
-        if len(self.nm) > 0:
-            frm = '{: ^5}{: ^15}{}{}{}'
-            print(frm.format('nm','nul','ema[]','        ','koef[]'))
-            for i, item in enumerate(self.nm):
-                print(frm.format(self.nm[i], str(self.nul[i]), self.ema[i], '   ', self.koef[i]))
-
-    def prn_arr(self, name_arr, arr):
-        print('len(' + name_arr + ')   => ' + str(len(arr)) + '\n' )
-        if len(arr) > 4:
-            for i in [0,1]: print(arr[i],'\n')
-            print('+++++++++++++++++++++++++\n')
-            for i in [-2,-1]: print(arr[i],'\n')
-        else:
-            for item in arr: print(item, '\n')
-
-    def rd_cfg_PACK(self):
-        conn = sqlite3.connect(self.path_db_pack)
+    def unpack_str_pck(self, hist_pck):
         try:
-            with conn:
-                cur = conn.cursor()
+            arr_pck = []
+            #self.arr_pk_t  = []
+            for cnt, i_str in enumerate(hist_pck):
+                buf = i_str[1].replace(',','.').split('|')
+                del buf[-1]
+                s = Class_str_PCK()
+                s.ind_s = i_str[0]
+                for cn, item in enumerate(buf):
+                    if cn == 0 : s.dt = item.split(' ')[0:2]
+                    ind_0 = 0 if cn != 0 else 2
+                    s.arr.append([int(float(f)) for f in item.split(' ')[ind_0:]])
+                arr_pck.append(s)
+                if len(arr_pck) % 100 == 0:  print(len(arr_pck), end='\r')
+                else:
+                    pass
+                if (len(arr_pck) == 0):
+                    for item in self.nm:
+                        arr_pck.append([])
+        except Exception as ex:
+            return [1, ex]
+        return [0, arr_pck]
 
-                self.nm, self.koef, self.nul, self.ema = [], [], [], []
-                cfg = []
-                cur.execute('SELECT * from ' + 'cfg_PACK')
-                cfg = cur.fetchall()    # read table name_tbl
-                #
-                print('packets => ', len(cfg))
-                #
-                for item in cfg:
-                    self.nm.append(item[0])          # ['pckt0']
-                    arr_k    = item[1].split(',')
-                    arr_koef = []
-                    for item_k in arr_k:             # '0:2:SR' => [0, 32, 'SR']
-                        buf_k = [int(f) if f.replace('-','').isdigit() else f for f in item_k.split(':')]
-                        arr_koef.append(buf_k)
-                    self.koef.append(arr_koef)       #  [[0, 2, 'SR'],[9, -20, 'MX'], ...
-                    self.nul.append(int(item[2]))    #  [0]
-                    self.ema.append([int(e) for e in item[3].split(':')]) # [1111, 15]
+    def unpack_str_cfg(self, cfg):
+        try:
+            self.nm   = []  # list NM   of packets
+            self.koef = []  # list KOEF of packets
+            self.nul  = []  # list NUL  of packets
+            self.ema  = []
+            for item in cfg:
+                self.nm.append(item[0])          # ['pckt0']
+                arr_k    = item[1].split(',')
+                arr_koef = []
+                for item_k in arr_k:             # '0:2:SR' => [0, 32, 'SR']
+                    buf_k = [int(f) if f.replace('-','').isdigit() else f for f in item_k.split(':')]
+                    arr_koef.append(buf_k)
+                self.koef.append(arr_koef)       #  [[0, 2, 'SR'],[9, -20, 'MX'], ...
+                self.nul.append(int(item[2]))    #  [0]
+                self.ema.append([int(e) for e in item[3].split(':')]) # [1111, 15]
+        except Exception as ex:
+            return [1, ex]
+        return [0, cfg]
+
+    def pack_arr_cfg(self):
+        try:
+            cfg_list = []
+            for j, jtem in enumerate(self.nm):
+                arr_koef = ''
+                for ktem in self.koef[j]:
+                    str_koef = ':'.join([str(f) for f in ktem])
+                    arr_koef += str_koef + ','
+                buf = [self.nm[j], arr_koef[:-1], str(self.nul[j]), ':'.join([str(f) for f in self.ema[j]])]
+                cfg_list.append(buf)
+            r_update = self.db_PCK_arc.update_tbl('cfg_PACK', cfg_list, val = ' VALUES(?,?,?,?)')
+            if r_update[0] == 1:
+                return [1, r_update[1]]
 
         except Exception as ex:
-            return [1, 'op_HIST_PACK ' + self.nm_tbl + '   ' + str(ex)]
+            return [1, ex]
+        return [0, cfg_list]
 
-        return [0, 'ok']
+    def pack_arr_pck(self, arr_pk, db_pk, nm_tbl_pk):
+        try:
+            pck_list = []
+            pAsk, pBid, EMAf, EMAf_r, cnt_EMAf_r = range(5)
+            if len(arr_pk) > 0:
+                print('len(arr_pk) = ', len(arr_pk))
+                for i_hist, item_hist in enumerate(arr_pk):
+                    if i_hist % 1000 == 0:  print(str(i_hist), end='\r')
+                    #bp()
+                    buf_dt = item_hist.dt[0] + ' ' + item_hist.dt[1] + ' '
+                    buf_s = ''
+                    for i_pack, item_pack in enumerate(item_hist.arr):
+                        buf_s += str(item_pack[pAsk]) + ' ' + str(item_pack[pBid])   + ' '
+                        buf_s += str(item_pack[EMAf]) + ' ' + str(item_pack[EMAf_r]) + ' '
+                        buf_s += str(item_pack[cnt_EMAf_r]) + '|'
+                    pck_list.append((item_hist.ind_s, buf_dt + buf_s.replace('.', ',')))
+                print('len(pck_list) = ', len(pck_list))
+                print('pck_list[0] = ', pck_list[0])
+                print('pck_list[-1] = ', pck_list[-1])
+            ''' rewrite data from table ARCHIV_PACK & PACK_TODAY & DATA ----'''
+            r_update = db_pk.update_tbl(nm_tbl_pk, pck_list, val = ' VALUES(?,?)')
+            if r_update[0] == 1:
+                return [1, r_update[1]]
+
+            # self.cur.execute('DELETE FROM ' + 'hist_PACK')
+            # self.cur.executemany('INSERT INTO ' + 'hist_PACK' + ' VALUES' + '(?,?)', pck_list)
+            # self.conn.commit()
+
+        except Exception as ex:
+            return [1, ex]
+        return [0, pck_list]
 
     def clc_ASK_BID(self, arr_FUT):
-        b_null = True if (self.nul[0] == 0) else False
+        try:
+            b_null = True if (self.nul[0] == 0) else False
 
-        print('start clc_ASK_BID! ')
-        ''' init  table ARCHIV_PACK  --------------------'''
-        self.arr_pk  = []  # list of Class_str_PCK()
-        fAsk, fBid = range(2)
-        for idx, item in enumerate(arr_FUT): # change STRINGs
-            if idx % 1000 == 0:  print(idx, end='\r')
-            arr_bb = Class_str_PCK()
-            arr_bb.ind_s, arr_bb.dt  = item.ind_s, item.dt
-            for p, ptem in enumerate(self.nm):    # change PACKETs
-                ask_p, bid_p, arr_pp = 0, 0, [0, 0, 0, 0, 0]
-                for jdx, jtem in enumerate(self.koef[p]): # calc PACK
-                    i_koef, k_koef = jtem[0], jtem[1]
-                    if k_koef > 0 :
-                        ask_p +=  k_koef * item.arr[i_koef][fAsk]
-                        bid_p +=  k_koef * item.arr[i_koef][fBid]
-                    if k_koef < 0 :
-                        ask_p +=  k_koef * item.arr[i_koef][fBid]
-                        bid_p +=  k_koef * item.arr[i_koef][fAsk]
-                if b_null:
-                    if idx == 0:
+            print('start clc_ASK_BID! b_null = ', b_null)
+            ''' init  table ARCHIV_PACK  --------------------'''
+            arr_pk  = []  # list of Class_str_PCK()
+            fAsk, fBid = range(2)
+            for idx, item in enumerate(arr_FUT): # change STRINGs
+                if idx % 1000 == 0:  print(idx, end='\r')
+                arr_bb = Class_str_PCK()
+                arr_bb.ind_s, arr_bb.dt  = item.ind_s, item.dt
+                for p, ptem in enumerate(self.nm):    # change PACKETs
+                    ask_p, bid_p, arr_pp = 0, 0, [0, 0, 0, 0, 0]
+                    for jdx, jtem in enumerate(self.koef[p]): # calc PACK
+                        i_koef, k_koef = jtem[0], jtem[1]
+                        if k_koef > 0 :
+                            ask_p +=  k_koef * item.arr[i_koef][fAsk]
+                            bid_p +=  k_koef * item.arr[i_koef][fBid]
+                        if k_koef < 0 :
+                            ask_p +=  k_koef * item.arr[i_koef][fBid]
+                            bid_p +=  k_koef * item.arr[i_koef][fAsk]
+
+                    if idx == 0 and b_null:
+                        arr_pp = [0, 0, 0, 0, 0]
                         self.nul[p] = int((ask_p + bid_p)/2)
-                arr_pp = [int(ask_p - self.nul[p]), int(bid_p - self.nul[p]), 0, 0, 0]
-                arr_bb.arr.append(arr_pp)
-            self.arr_pk.append(arr_bb)
+                        arr_bb.arr.append(arr_pp)
+                        continue
+                    arr_pp = [int(ask_p - self.nul[p]), int(bid_p - self.nul[p]), 0, 0, 0]
+                    arr_bb.arr.append(arr_pp)
+                arr_pk.append(arr_bb)
 
-        if b_null:
-            # update self.nul[i_pack] in table cfg_PACK ----
-            conn = sqlite3.connect(self.path_db_pack)
-            try:
-                with conn:
-                    cur = conn.cursor()
-                    duf_list = []
-                    for j, jtem in enumerate(self.nm):
-                        arr_koef = ''
-                        for ktem in self.koef[j]:
-                            str_koef = ':'.join([str(f) for f in ktem])
-                            arr_koef += str_koef + ','
-                        buf = (self.nm[j], arr_koef[:-1], str(self.nul[j]), ':'.join([str(f) for f in self.ema[j]]))
-                        duf_list.append(buf)
-                    scur.execute('DELETE FROM ' + 'cfg_PACK')
-                    cur.executemany('INSERT INTO ' + 'cfg_PACK' + ' VALUES' + '(?,?,?,?)', duf_list)
-                    conn.commit()
-            except Exception as ex:
-                return [1, 'update NUL' + self.nm_tbl + '   ' + str(ex)]
+            self.prn_arr('arr_pk', arr_pk)
+        except Exception as ex:
+            return [1, ex]
 
-        print('finish clc_ASK_BID! => ', str(len(self.arr_pk)))
-#=======================================================================
-
+        print('finish clc_ASK_BID! => ', str(len(arr_pk)))
+        return [0, arr_pk]
 
 #=======================================================================
-def event_menu(event, db_FUT_t, db_FUT_a, db_PACK_t, db_PACK_a):
+def event_menu(event, _gl):
     rq = [0,event]
     #-------------------------------------------------------------------
     os.system('cls')  # on windows
     #-------------------------------------------------------------------
-    if event == 'rd_hst_FUT_t'  :
-        print('rd_hst_FUT_t ...')
-        rq = db_FUT_t.rd_hst()
+    if event == 'rd_hst_FUT_a'  :   #   _gl.hst_fut_a   _gl.arr_fut_a
+        hst = _gl.db_FUT_arc.read_tbl('hist_FUT')
+        if hst[0] == 0:
+            _gl.hst_fut_a = hst[1][:]
+            #_gl.prn_arr('hist_fut_a', _gl.hst_fut_a)
+            arr = _gl.unpack_str_fut(hst[1])
+            if arr[0] == 0:
+                _gl.arr_fut_a = arr[1][:]
+                #_gl.prn_arr('arr_fut_a', _gl.arr_fut_a)
     #-------------------------------------------------------------------
-    if event == 'rd_hst_FUT_a'  :
-        print('rd_hst_FUT_a ...')
-        rq = db_FUT_a.rd_hst()
+    if event == 'rd_hst_FUT_t'  :   #   _gl.hst_fut_t   _gl.arr_fut_t
+        hst = _gl.db_FUT_tod.read_tbl('hist_FUT_today')
+        if hst[0] == 0:
+            _gl.hst_fut_t = hst[1][:]
+            #_gl.prn_arr('hist_fut_t', _gl.hst_fut_t)
+            arr = _gl.unpack_str_fut(hst[1])
+            if arr[0] == 0:
+                _gl.arr_fut_t = arr[1][:]
+                #_gl.prn_arr('arr_fut_t', _gl.arr_fut_t)
     #-------------------------------------------------------------------
-    if event == 'prn_arr_FUT_t'  :
-        print('prn_arr_FUT_t ...')
-        rq = db_FUT_t.prn_arr('arr_fut_t', db_FUT_t.arr_fut)
+    if event == 'rd_hst_PACK_a'  :   #   _gl.hst_pck_a   _gl.arr_pck_a
+        hst = _gl.db_PCK_arc.read_tbl('hist_PACK')
+        if hst[0] == 0:
+            _gl.hst_pck_a = hst[1][:]
+            arr = _gl.unpack_str_pck(hst[1])
+            if arr[0] == 0:
+                _gl.arr_pck_a = arr[1][:]
+                _gl.prn_arr('arr_pck_a', arr[1],)
     #-------------------------------------------------------------------
-    if event == 'prn_arr_FUT_a'  :
-        print('prn_arr_FUT_a ...')
-        rq = db_FUT_a.prn_arr('arr_fut_a', db_FUT_a.arr_fut)
+    if event == 'rd_hst_PACK_t'  :   #   _gl.hst_pck_t   _gl.arr_pck_t
+        hst = _gl.db_PCK_tod.read_tbl('hist_PACK_today')
+        if hst[0] == 0:
+            _gl.hst_pck_t = hst[1][:]
+            arr = _gl.unpack_str_pck(hst[1])
+            if arr[0] == 0:
+                _gl.arr_pck_t = arr[1][:]
+                _gl.prn_arr('arr_pck_t', arr[1],)
     #-------------------------------------------------------------------
-    if event == 'prn_arr_PACK_t'  :
-        print('prn_arr_PACK_t ...')
-        rq = db_PACK_t.prn_arr('arr_pack_t', db_PACK_t.arr_pk)
+    if event == 'rd_cfg_PACK_a'  :
+        cfg = _gl.db_PCK_arc.read_tbl('cfg_PACK')
+        if cfg[0] == 0:
+            arr = _gl.unpack_str_cfg(cfg[1])
     #-------------------------------------------------------------------
-    if event == 'prn_arr_PACK_a'  :
-        print('prn_arr_PACK_a ...')
-        rq = db_PACK_a.prn_arr('arr_pack_a', db_PACK_a.arr_pk)
-    #-------------------------------------------------------------------
-    if event == 'prn_cfg_a'  :
-        print('prn_cfg_a ...')
-        db_PACK_a.prn_cfg()
-    #-------------------------------------------------------------------
-    if event == 'prn_cfg_t'  :
-        print('prn_cfg_t ...')
-        db_PACK_t.prn_cfg()
+    if event == 'wr_cfg_PACK_a'  :
+        cfg = _gl.pack_arr_cfg()
+        if cfg[0] == 0:
+            print('update CFG ok!')
     #-------------------------------------------------------------------
     if event == 'calc_hst_PACK_a'  :
-        elm = len(db_PACK_a.nm)
-        db_PACK_a.nul = [0 for i in range(elm)]
-        db_PACK_t.nul = db_PACK_a.nul[:]
+        _gl.nul = [0 for i in range(len(_gl.nm))]
         print('calc_hst_PACK_a ...')
-        db_PACK_a.clc_ASK_BID(db_FUT_a.arr_fut)
-        db_PACK_t.nul = db_PACK_a.nul[:]
+        r_clc = _gl.clc_ASK_BID(_gl.arr_fut_a)
+        if r_clc[0] == 0:
+            _gl.arr_pck_a = r_clc[1]
     #-------------------------------------------------------------------
     if event == 'calc_hst_PACK_t'  :
         print('calc_hst_PACK_t ...')
-        db_PACK_t.clc_ASK_BID(db_FUT_t.arr_fut)
+        r_clc = _gl.clc_ASK_BID(_gl.arr_fut_t)
+        if r_clc[0] == 0:
+            _gl.arr_pck_t = r_clc[1]
     #-------------------------------------------------------------------
+    if event == 'wr_hst_PACK_a'  :
+        print('wr_hst_PACK_a ...')
+        pck_a = _gl.pack_arr_pck(_gl.arr_pck_a, _gl.db_PCK_arc, 'hist_PACK')
+        if pck_a[0] == 0:
+            print('update hst_PACK ok!')
+    #-------------------------------------------------------------------
+    if event == 'wr_hst_PACK_t'  :
+        print('wr_hst_PACK_t ...')
+        pck_t = _gl.pack_arr_pck(_gl.arr_pck_t, _gl.db_PCK_tod, 'hist_PACK_today')
+        if pck_t[0] == 0:
+            print('update hst_PACK_today ok!')
+    #-------------------------------------------------------------------
+    if event == 'prn_cfg_a'  :
+        _gl.prn_cfg()
+    #-------------------------------------------------------------------
+    if event == 'prn_hst_FUT_t'  :
+        _gl.prn_arr('hist_fut_t', _gl.hst_fut_t)
+    #-------------------------------------------------------------------
+    if event == 'prn_arr_FUT_t'  :
+        _gl.prn_arr('arr_fut_t', _gl.arr_fut_t)
+    #-------------------------------------------------------------------
+    if event == 'prn_hst_FUT_a'  :
+        _gl.prn_arr('hist_fut_a', _gl.hst_fut_a)
+    #-------------------------------------------------------------------
+    if event == 'prn_arr_FUT_a'  :
+        _gl.prn_arr('arr_fut_a', _gl.arr_fut_a)
+    #-------------------------------------------------------------------
+    if event == 'prn_hst_PCK_t'  :
+        _gl.prn_arr('hist_pck_t', _gl.hst_pck_t)
+    #-------------------------------------------------------------------
+    if event == 'prn_arr_PCK_t'  :
+        _gl.prn_arr('arr_pck_t', _gl.arr_pck_t)
+    #-------------------------------------------------------------------
+    if event == 'prn_hst_PCK_a'  :
+        _gl.prn_arr('hist_pck_a', _gl.hst_pck_a)
+    #-------------------------------------------------------------------
+    if event == 'prn_arr_PCK_a'  :
+        _gl.prn_arr('arr_pck_a', _gl.arr_pck_a)
+    #-------------------------------------------------------------------
+
     print('rq = ', rq)
 
 #=======================================================================
@@ -268,68 +406,26 @@ def main():
     menu_def = [
         ['Mode',
             ['auto','manual', ],],
-        ['READ',
-            ['rd_hst_FUT_t',   'rd_hst_FUT_a',   '---',
-             'rd_hst_PACK_t',  'rd_hst_PACK_a',  ],],
         ['DEBUG',
-            ['calc_hst_PACK_a', 'calc_hst_PACK_t', '---',
-             'calc_hst_PACK_a',  ],],
+            ['rd_cfg_PACK_a',   'wr_cfg_PACK_a',    '---',
+             'rd_hst_FUT_a',    'rd_hst_FUT_t',     '---',
+             'rd_hst_PACK_a',   'rd_hst_PACK_t',    '---',
+             'calc_hst_PACK_a', 'calc_hst_PACK_t',  '---',
+             'wr_hst_PACK_a',   'wr_hst_PACK_t',    '---',  ],],
         ['PRINT',
-            ['prn_cfg_a', 'prn_cfg_t',   '---',
-             'prn_arr_FUT_t',  'prn_arr_FUT_a',  '---',
-             'prn_arr_PACK_t', 'prn_arr_PACK_a', ],],
+            ['prn_cfg_a',  '---',
+             'prn_hst_FUT_t', 'prn_arr_FUT_t', 'prn_hst_FUT_a', 'prn_arr_FUT_a',  '---',
+             'prn_hst_PCK_t', 'prn_arr_PCK_t', 'prn_hst_PCK_a', 'prn_arr_PCK_a', ],],
         ['Exit', 'Exit']
     ]
-    while True:  # init db_TODAY ---------------------------------------
-        c_dir    = os.path.abspath(os.curdir)
-        lg_FILE  = Class_LOGGER(c_dir + '\\LOG\\pack_logger.log')
-        lg_FILE.wr_log_info('START')
-        #---------------------------------------------------------------
-        db_FUT_a = Class_DB_FUT(c_dir + '\\DB\\db_fut_a.sqlite', 'hist_FUT')
-        rq = db_FUT_a.rd_hst()
-        if rq[0] != 0 :
-            print('db_FUT_a = > ', rq[1])
-        else:
-            print('INIT db_FUT_a ARCHIV = > ', rq)
-        #---------------------------------------------------------------
-        db_FUT_t = Class_DB_FUT(c_dir + '\\DB\\db_fut_t.sqlite',  'hist_FUT_today')
-        rq = db_FUT_t.rd_hst()
-        if rq[0] != 0 :
-            print('db_FUT_t = > ', rq[1])
-        else:
-            print('INIT db_FUT_t TODAY = > ', rq)
-        #---------------------------------------------------------------
-        db_PACK_a = Class_DB_PACK(c_dir + '\\DB\\db_pack_a.sqlite', 'hist_PACK')
-        rq = db_PACK_a.rd_cfg_PACK()
-        if rq[0] != 0 :
-            print('db_PACK_a = > ', rq[1])
-        else:
-            print('INIT db_PACK_a ARCHIV = > ', rq)
-        #---------------------------------------------------------------
-        db_PACK_t = Class_DB_PACK(c_dir + '\\DB\\db_pack_t.sqlite',  'hist_PACK_today')
-        rq = db_PACK_t.rd_cfg_PACK()
-        if rq[0] != 0 :
-            print('db_PACK_t = > ', rq[1])
-        else:
-            print('INIT db_PACK_t TODAY = > ', rq)
-        #---------------------------------------------------------------
-
-
-
-
-        # db_PACK = Class_DB(c_dir + '\\DB\\db_today.sqlite',
-                            # c_dir + '\\DB\\db_archiv.sqlite',
-                            # c_dir + '\\DB\\db_pack_t.sqlite',
-                            # c_dir + '\\DB\\db_pack_a.sqlite')
-
-        break
+    _gl = Class_PACK()      # init db_TODAY ----------------------------
 
     while True:  # init MENU -------------------------------------------
         def_txt, frm = [], '{: <10}  => {: ^15}\n'
-        def_txt.append(frm.format('db_tod'  , '\\DB\\db_today.sqlite'))
-        def_txt.append(frm.format('db_arc'  , '\\DB\\db_archiv.sqlite'))
-        def_txt.append(frm.format('db_pack_t' , '\\DB\\db_pack_t.sqlite'))
-        def_txt.append(frm.format('db_pack_a' , '\\DB\\db_pack_a.sqlite'))
+        def_txt.append(frm.format('db_FUT_tod' , '\\DB\\db_fut_t.sqlite'))
+        def_txt.append(frm.format('db_FUT_arc' , '\\DB\\db_fut_a.sqlite'))
+        def_txt.append(frm.format('db_PCK_tod' , '\\DB\\db_pack_t.sqlite'))
+        def_txt.append(frm.format('db_PCK_arc' , '\\DB\\db_pack_a.sqlite'))
         #=======================================================================
         # Display data
         layout = [
@@ -354,7 +450,7 @@ def main():
         stroki = []
         event, values = window.Read(timeout = tm_out )
         #---------------------------------------------------------------
-        event_menu(event, db_FUT_t, db_FUT_a, db_PACK_t, db_PACK_a)
+        event_menu(event, _gl)
         #---------------------------------------------------------------
         if event is None or event == 'Quit' or event == 'Exit': break
         #---------------------------------------------------------------
@@ -364,7 +460,6 @@ def main():
         #---------------------------------------------------------------
         if event == '__TIMEOUT__':
             pass
-            #rq = db_TODAY.op(
         #---------------------------------------------------------------
         window.FindElement('txt_data').Update('\n'.join(stroki))
         stts  = time.strftime(frm, time.localtime()) + '\n'
