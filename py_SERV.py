@@ -262,6 +262,11 @@ def main():
             if rep[0] > 0:
                 print(rep)
         #---------------------------------------------------------------
+        if event == 'del_HIST_tod':
+            if 'OK' == sg.popup_ok_cancel('PopupOKCancel'):  # Shows OK and Cancel buttons
+                print('OK')
+
+        #---------------------------------------------------------------
         if event == 'load_HIST_arc':
             #--- read HIST file ---
             buf_str = []
