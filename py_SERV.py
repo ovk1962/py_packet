@@ -69,7 +69,7 @@ class Class_LOGGER():
     def wr_log_error(self, msg):
         self.logger.error(msg)
 #=======================================================================
-class Class_TERM():
+class Class_SERV():
     def __init__(self):
         c_dir    = os.path.abspath(os.curdir)
         self.lg_FILE    = Class_LOGGER(c_dir + '\\LOG\\pack_logger.log')
@@ -150,26 +150,26 @@ def event_menu(event, _gl):
     #-------------------------------------------------------------------
     if event == 'wr_HIST_file'  :
         print('wr_HIST_file ... save hist_FUT_today into file')
-
-        hst = _gl.db_FUT_tod.read_tbl('hist_FUT_today')
-        if hst[0] > 0:
-            print('problem ...', hst[1])
-        else:
-            hst_fut_t = hst[1]
-            print('len(hist_FUT_today) = ', len(hst_fut_t))
-            if len(hst_fut_t) > 0:
-                # change 2020-00-00 to  for name FILE
-                print(_gl.path_file_TXT)
-                buf_name = hst_fut_t[-1][1][6:10] + '-'
-                buf_name += hst_fut_t[-1][1][3:5] + '-'
-                buf_name += hst_fut_t[-1][1][0:2]
-                buf_name = _gl.path_file_TXT.split('***')[0] + buf_name + _gl.path_file_TXT.split('***')[1]
-                print(buf_name)
-                with open(buf_name, 'w') as file_HIST:
-                    for item in hst_fut_t:
-                        file_HIST.write(item[1]+'\n')
+        if 'OK' == sg.popup_ok_cancel('save data from table *hist_FUT_today* into file *path_file_TXT*'):
+            hst = _gl.db_FUT_tod.read_tbl('hist_FUT_today')
+            if hst[0] > 0:
+                print('problem ...', hst[1])
             else:
-                print('hist_FUT_today IS empty')
+                hst_fut_t = hst[1]
+                print('len(hist_FUT_today) = ', len(hst_fut_t))
+                if len(hst_fut_t) > 0:
+                    # change 2020-00-00 to  for name FILE
+                    print(_gl.path_file_TXT)
+                    buf_name = hst_fut_t[-1][1][6:10] + '-'
+                    buf_name += hst_fut_t[-1][1][3:5] + '-'
+                    buf_name += hst_fut_t[-1][1][0:2]
+                    buf_name = _gl.path_file_TXT.split('***')[0] + buf_name + _gl.path_file_TXT.split('***')[1]
+                    print(buf_name)
+                    with open(buf_name, 'w') as file_HIST:
+                        for item in hst_fut_t:
+                            file_HIST.write(item[1]+'\n')
+                else:
+                    print('hist_FUT_today IS empty')
     #-------------------------------------------------------------------
 
     print('rq = ', rq)
@@ -184,7 +184,7 @@ def main():
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
     menu_def = [
         ['Mode',
-            ['wr_HIST_file', 'check_HIST_file', 'load_HIST_arc', 'del_HIST_tod'],],
+            ['wr_HIST_file', 'load_HIST_arc', 'del_HIST_tod'],],
         ['READ',
             ['rd_cfg_SOFT',    '---', 'rd_HST_today',  'rd_HST_archiv', ],],
         ['PRINT',
@@ -195,7 +195,7 @@ def main():
         #sg.theme('LightGreen')
         #sg.set_options(element_padding=(0, 0))
 
-        _gl = Class_TERM()      # init db_TODAY ------------------------
+        _gl = Class_SERV()      # init db_TODAY ------------------------
         print('--- read table cfg_SOFT  --------------------------------')
         rq  = _gl.unpack_cfg()
         print('--- read table hist_FUT_today ---------------------------')
@@ -215,13 +215,16 @@ def main():
         layout = [
                     [sg.Menu(menu_def, tearoff=False, key='menu_def')],
                     [sg.Text('path_check_HIST_file', size=(15, 1)), sg.Input('check_HIST_file', key='-path_check_HIST-'), sg.FileBrowse()],
+                    [sg.Button('check_HIST_file', key='-check_HIST_file-')],
                     [sg.T(' ')],
                     [sg.Text('titul',          size=(15, 1)), sg.Input(_gl.titul, key='-titul-') ],
                     [sg.Text('path_file_DATA', size=(15, 1)), sg.Input(_gl.path_file_DATA, key='-path_DATA-'), sg.FileBrowse()],
                     [sg.Text('path_file_HIST', size=(15, 1)), sg.Input(_gl.path_file_HIST, key='-path_HIST-'), sg.FileBrowse()],
                     [sg.Text('dt_start',       size=(15, 1)), sg.Input(_gl.dt_start, key='-dt_start-')],
                     [sg.Text('path_file_TXT',  size=(15, 1)), sg.Input(_gl.path_file_TXT, key='-path_TXT-'),   sg.FileBrowse()],
-                    [sg.OK(), sg.T('   '), sg.Exit(),  sg.T(6*' '), sg.T('', size=(60,1), font='Helvetica 8', key='txt_status')],
+                    [sg.Button('update cfg_SOFT', key='-update_cfg_SOFT-')],
+                    [sg.T(' ')],
+                    [sg.T('', size=(60,1), font='Helvetica 8', key='txt_status')],
                      #sg.Quit(auto_size_button=True)
                  ]
         sg.SetOptions(element_padding=(0,0))
@@ -244,28 +247,37 @@ def main():
         if event == '__TIMEOUT__':
             pass
         #---------------------------------------------------------------
-        if event == 'OK':
-            _gl.titul          = values['-titul-']
-            _gl.path_file_DATA = values['-path_DATA-']
-            _gl.path_file_HIST = values['-path_HIST-']
-            _gl.dt_start       = values['-dt_start-']
-            _gl.path_file_TXT  = values['-path_TXT-']
+        if event == '-update_cfg_SOFT-':
+            if 'OK' == sg.popup_ok_cancel('\n' + 'Update table *cfg_SOFT*' + '\n'):
+                _gl.titul          = values['-titul-']
+                _gl.path_file_DATA = values['-path_DATA-']
+                _gl.path_file_HIST = values['-path_HIST-']
+                _gl.dt_start       = values['-dt_start-']
+                _gl.path_file_TXT  = values['-path_TXT-']
 
-            cfg = []
-            cfg.append(['titul',          _gl.titul])
-            cfg.append(['path_file_DATA', _gl.path_file_DATA])
-            cfg.append(['path_file_HIST', _gl.path_file_HIST])
-            cfg.append(['dt_start',       _gl.dt_start])
-            cfg.append(['path_file_TXT',  _gl.path_file_TXT])
+                cfg = []
+                cfg.append(['titul',          _gl.titul])
+                cfg.append(['path_file_DATA', _gl.path_file_DATA])
+                cfg.append(['path_file_HIST', _gl.path_file_HIST])
+                cfg.append(['dt_start',       _gl.dt_start])
+                cfg.append(['path_file_TXT',  _gl.path_file_TXT])
 
-            rep = _gl.db_FUT_tod.update_tbl('cfg_SOFT', cfg, val = ' VALUES(?,?)')
-            if rep[0] > 0:
-                print(rep)
+                rep = _gl.db_FUT_tod.update_tbl('cfg_SOFT', cfg, val = ' VALUES(?,?)')
+                if rep[0] > 0:
+                    print(rep)
         #---------------------------------------------------------------
         if event == 'del_HIST_tod':
-            if 'OK' == sg.popup_ok_cancel('PopupOKCancel'):  # Shows OK and Cancel buttons
-                print('OK')
-
+            if 'OK' == sg.popup_ok_cancel('deleted data in table *hist_FUT_today*'):  # Shows OK and Cancel buttons
+                try:
+                    conn = sqlite3.connect(os.path.abspath(os.curdir) + '\\DB\\db_fut_t.sqlite')
+                    with conn:
+                        cur = conn.cursor()
+                        #--- update table nm_tbl ---------------------------
+                        cur.execute('DELETE FROM ' + 'hist_FUT_today')
+                        conn.commit()
+                        print('OK, deleted data in table *hist_FUT_today*')
+                except Exception as ex:
+                    sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
         #---------------------------------------------------------------
         if event == 'load_HIST_arc':
             #--- read HIST file ---
@@ -302,27 +314,34 @@ def main():
                     cur.executemany('INSERT INTO ' + 'hist_FUT' + ' VALUES' + '(?,?)', buf_hist_arch)
                     conn.commit()
             except Exception as ex:
-                print(ex)
+                sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
         #---------------------------------------------------------------
-        if event == 'check_HIST_file':
-            #--- read HIST file ---
-            buf_str = []
-            frm = '%d.%m.%Y %H:%M:%S'
-            with open(values['-path_check_HIST-'],"r") as fh:
-                buf_str = fh.read().splitlines()
-                cr, pr, dtt_cr, dtt_pr = 0, 0, '', ''
-                for i, item in enumerate(buf_str):
-                    dtt_pr = dtt_cr
-                    dtt_cr = datetime.strptime(item.split('|')[0], frm)
-                    ind_sec = int(dtt_cr.replace(tzinfo=timezone.utc).timestamp())
-                    if i == 0:
-                        cr, pr = ind_sec, 0
-                    else:
-                        pr = cr
-                        cr = ind_sec
-                    if cr - pr > 60:
-                        print(dtt_pr, ' ... ', dtt_cr)
-
+        if event == '-check_HIST_file-':
+            if 'OK' == sg.popup_ok_cancel('\n' +
+                'check 1 minute interval in -path_check_HIST- ' +
+                '\n' +
+                '         please check PATH !'+
+                '\n'):
+                #--- read HIST file ---
+                buf_str = []
+                frm = '%d.%m.%Y %H:%M:%S'
+                try:
+                    with open(values['-path_check_HIST-'],"r") as fh:
+                        buf_str = fh.read().splitlines()
+                        cr, pr, dtt_cr, dtt_pr = 0, 0, '', ''
+                        for i, item in enumerate(buf_str):
+                            dtt_pr = dtt_cr
+                            dtt_cr = datetime.strptime(item.split('|')[0], frm)
+                            ind_sec = int(dtt_cr.replace(tzinfo=timezone.utc).timestamp())
+                            if i == 0:
+                                cr, pr = ind_sec, 0
+                            else:
+                                pr = cr
+                                cr = ind_sec
+                            if cr - pr > 60:
+                                print(dtt_pr, ' ... ', dtt_cr)
+                except Exception as ex:
+                    sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
         #---------------------------------------------------------------
         #window.FindElement('txt_data').Update('\n'.join(stroki))
         stts = 10*' ' + time.strftime(frm, time.localtime()) + 5*' ' + 'event = ' + event
