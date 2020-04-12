@@ -126,7 +126,7 @@ class Class_SERV():
             return [1, ex]
         return [0, cfg]
 #=======================================================================
-def event_menu(event, _gl):
+def event_menu(event, values, _gl):
     rq = [0,event]
     #-------------------------------------------------------------------
     os.system('cls')  # on windows
@@ -150,7 +150,8 @@ def event_menu(event, _gl):
     #-------------------------------------------------------------------
     if event == 'wr_HIST_file'  :
         print('wr_HIST_file ... save hist_FUT_today into file')
-        if 'OK' == sg.popup_ok_cancel('save data from table *hist_FUT_today* into file *path_file_TXT*'):
+        if 'OK' == sg.popup_ok_cancel('\n   Save data from table *hist_FUT_today*   ' +
+                                      '\n      into file *path_file_TXT*   \n'):
             hst = _gl.db_FUT_tod.read_tbl('hist_FUT_today')
             if hst[0] > 0:
                 print('problem ...', hst[1])
@@ -170,6 +171,126 @@ def event_menu(event, _gl):
                             file_HIST.write(item[1]+'\n')
                 else:
                     print('hist_FUT_today IS empty')
+                    sg.popup_error('\n    Warning! \nTable *hist_FUT_today* IS empty!\n',
+                                    background_color = 'grey',
+                                    no_titlebar = True)
+    #-------------------------------------------------------------------
+    if event == '-update_cfg_SOFT-':
+        if 'OK' == sg.popup_ok_cancel('\n' + 'Update table *cfg_SOFT*' + '\n'):
+            _gl.titul          = values['-titul-']
+            _gl.path_file_DATA = values['-path_DATA-']
+            _gl.path_file_HIST = values['-path_HIST-']
+            _gl.dt_start       = values['-dt_start-']
+            _gl.path_file_TXT  = values['-path_TXT-']
+
+            cfg = []
+            cfg.append(['titul',          _gl.titul])
+            cfg.append(['path_file_DATA', _gl.path_file_DATA])
+            cfg.append(['path_file_HIST', _gl.path_file_HIST])
+            cfg.append(['dt_start',       _gl.dt_start])
+            cfg.append(['path_file_TXT',  _gl.path_file_TXT])
+
+            rq = _gl.db_FUT_tod.update_tbl('cfg_SOFT', cfg, val = ' VALUES(?,?)')
+            if rq[0] > 0:
+                sg.popup_error('\n' + 'Did not update cfg_SOFT!' + '\n'
+                                + rep[1] + '\n',
+                                background_color = 'brown',
+                                no_titlebar = True)
+            else:
+                sg.popup_ok('\nUpdated *cfg_SOFT* successfully !\n')
+    #-------------------------------------------------------------------
+    if event == 'del_HIST_tod':
+        if 'OK' == sg.popup_ok_cancel('\nAre you sure to delete data in table *hist_FUT_today* ?\n'):
+            try:
+                conn = sqlite3.connect(os.path.abspath(os.curdir) + '\\DB\\db_fut_t.sqlite')
+                with conn:
+                    cur = conn.cursor()
+                    #--- update table nm_tbl ---------------------------
+                    cur.execute('DELETE FROM ' + 'hist_FUT_today')
+                    conn.commit()
+                    sg.popup_ok('\nOK, it was delete data in table *hist_FUT_today* successfully !\n')
+            except Exception as ex:
+                sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
+        if 'OK' == sg.popup_ok_cancel('\nAre you sure to delete data in table *hist_PACK_today* ?\n'):
+            try:
+                conn = sqlite3.connect(os.path.abspath(os.curdir) + '\\DB\\db_pack_t.sqlite')
+                with conn:
+                    cur = conn.cursor()
+                    #--- update table nm_tbl ---------------------------
+                    cur.execute('DELETE FROM ' + 'hist_PACK_today')
+                    conn.commit()
+                    sg.popup_ok('\nOK, it was delete data in table *hist_PACK_today* successfully !\n')
+            except Exception as ex:
+                sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
+    #---------------------------------------------------------------
+    if event == '-check_HIST_file-':
+        if 'OK' == sg.popup_ok_cancel('\n' +
+            'check 1 minute interval in -path_check_HIST- ' +
+            '\n' +
+            '         please check PATH !'+
+            '\n'):
+            #--- read HIST file ---
+            buf_str = []
+            frm = '%d.%m.%Y %H:%M:%S'
+            try:
+                with open(values['-path_check_HIST-'],"r") as fh:
+                    buf_str = fh.read().splitlines()
+                    cr, pr, dtt_cr, dtt_pr = 0, 0, '', ''
+                    for i, item in enumerate(buf_str):
+                        dtt_pr = dtt_cr
+                        dtt_cr = datetime.strptime(item.split('|')[0], frm)
+                        ind_sec = int(dtt_cr.replace(tzinfo=timezone.utc).timestamp())
+                        if i == 0:
+                            cr, pr = ind_sec, 0
+                        else:
+                            pr = cr
+                            cr = ind_sec
+                        if cr - pr > 60:
+                            print(dtt_pr, ' ... ', dtt_cr)
+            except Exception as ex:
+                sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
+    #-------------------------------------------------------------------
+    if event == 'load_HIST_arc':
+        #--- read HIST file ---
+        buf_str = []
+        frm = '%d.%m.%Y %H:%M:%S'
+        try:
+            with open(values['-path_check_HIST-'],"r") as fh:
+                buf_str = fh.read().splitlines()
+            #--- create list 'buf_hist' HIST 1 minute 10.00 ... 18.45
+            mn_pr, mn_cr, buf_hist = '', '00', []
+            for cnt, item in enumerate(buf_str):
+                mn_cr = item[14:16]
+                #hr_cr = int(item[11:13])
+                if int(item[11:13]) == 19: break
+                if mn_pr != mn_cr:
+                    buf_hist.append(item)
+                mn_pr = mn_cr
+        except Exception as ex:
+            sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
+            return
+        #--- prepaire 'buf_hist' for update table 'hist_fut'
+        buf_hist_arch, frm = [], '%d.%m.%Y %H:%M:%S'
+        for item in buf_hist:
+            dtt_cr = datetime.strptime(item.split('|')[0], frm)
+            ind_sec = int(dtt_cr.replace(tzinfo=timezone.utc).timestamp())
+            buf_hist_arch.append([ind_sec, item])
+        for i in [0,1]: print(buf_hist_arch[i],'\n')
+        print('+++++++++++++++++++++++++\n')
+        for i in [-2,-1]: print(buf_hist_arch[i],'\n')
+        print('len(buf_hist_arch) = ', len(buf_hist_arch))
+        ''' append buf_hist_arch into table hist_FUT  ------'''
+        path_db_FUT_arc = os.path.abspath(os.curdir) + '\\DB\\db_fut_a.sqlite'
+        conn = sqlite3.connect(path_db_FUT_arc)
+        try:
+            with conn:
+                cur = conn.cursor()
+                #self.cur.execute('DELETE FROM ' + 'hist_FUT_today')
+                cur.executemany('INSERT INTO ' + 'hist_FUT' + ' VALUES' + '(?,?)', buf_hist_arch)
+                conn.commit()
+                sg.popup_ok('\nOK, it was append data in table *hist_FUT* successfully !\n')
+        except Exception as ex:
+            sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
     #-------------------------------------------------------------------
 
     print('rq = ', rq)
@@ -240,108 +361,12 @@ def main():
         stroki = []
         event, values = window.Read(timeout = 25000 )
         #---------------------------------------------------------------
-        event_menu(event, _gl)
+        event_menu(event, values, _gl)
         #---------------------------------------------------------------
         if event is None or event == 'Quit' or event == 'Exit': break
         #---------------------------------------------------------------
         if event == '__TIMEOUT__':
             pass
-        #---------------------------------------------------------------
-        if event == '-update_cfg_SOFT-':
-            if 'OK' == sg.popup_ok_cancel('\n' + 'Update table *cfg_SOFT*' + '\n'):
-                _gl.titul          = values['-titul-']
-                _gl.path_file_DATA = values['-path_DATA-']
-                _gl.path_file_HIST = values['-path_HIST-']
-                _gl.dt_start       = values['-dt_start-']
-                _gl.path_file_TXT  = values['-path_TXT-']
-
-                cfg = []
-                cfg.append(['titul',          _gl.titul])
-                cfg.append(['path_file_DATA', _gl.path_file_DATA])
-                cfg.append(['path_file_HIST', _gl.path_file_HIST])
-                cfg.append(['dt_start',       _gl.dt_start])
-                cfg.append(['path_file_TXT',  _gl.path_file_TXT])
-
-                rep = _gl.db_FUT_tod.update_tbl('cfg_SOFT', cfg, val = ' VALUES(?,?)')
-                if rep[0] > 0:
-                    print(rep)
-        #---------------------------------------------------------------
-        if event == 'del_HIST_tod':
-            if 'OK' == sg.popup_ok_cancel('deleted data in table *hist_FUT_today*'):  # Shows OK and Cancel buttons
-                try:
-                    conn = sqlite3.connect(os.path.abspath(os.curdir) + '\\DB\\db_fut_t.sqlite')
-                    with conn:
-                        cur = conn.cursor()
-                        #--- update table nm_tbl ---------------------------
-                        cur.execute('DELETE FROM ' + 'hist_FUT_today')
-                        conn.commit()
-                        print('OK, deleted data in table *hist_FUT_today*')
-                except Exception as ex:
-                    sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
-        #---------------------------------------------------------------
-        if event == 'load_HIST_arc':
-            #--- read HIST file ---
-            buf_str = []
-            frm = '%d.%m.%Y %H:%M:%S'
-            with open(values['-path_check_HIST-'],"r") as fh:
-                buf_str = fh.read().splitlines()
-            #--- create list 'buf_hist' HIST 1 minute 10.00 ... 18.45
-            mn_pr, mn_cr, buf_hist = '', '00', []
-            for cnt, item in enumerate(buf_str):
-                mn_cr = item[14:16]
-                #hr_cr = int(item[11:13])
-                if int(item[11:13]) == 19: break
-                if mn_pr != mn_cr:
-                    buf_hist.append(item)
-                mn_pr = mn_cr
-            #--- prepaire 'buf_hist' for update table 'hist_fut'
-            buf_hist_arch, frm = [], '%d.%m.%Y %H:%M:%S'
-            for item in buf_hist:
-                dtt_cr = datetime.strptime(item.split('|')[0], frm)
-                ind_sec = int(dtt_cr.replace(tzinfo=timezone.utc).timestamp())
-                buf_hist_arch.append([ind_sec, item])
-            for i in [0,1]: print(buf_hist_arch[i],'\n')
-            print('+++++++++++++++++++++++++\n')
-            for i in [-2,-1]: print(buf_hist_arch[i],'\n')
-            print('len(buf_hist_arch) = ', len(buf_hist_arch))
-            ''' append buf_hist_arch into table hist_FUT  ------'''
-            path_db_FUT_arc = os.path.abspath(os.curdir) + '\\DB\\db_fut_a.sqlite'
-            conn = sqlite3.connect(path_db_FUT_arc)
-            try:
-                with conn:
-                    cur = conn.cursor()
-                    #self.cur.execute('DELETE FROM ' + 'hist_FUT_today')
-                    cur.executemany('INSERT INTO ' + 'hist_FUT' + ' VALUES' + '(?,?)', buf_hist_arch)
-                    conn.commit()
-            except Exception as ex:
-                sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
-        #---------------------------------------------------------------
-        if event == '-check_HIST_file-':
-            if 'OK' == sg.popup_ok_cancel('\n' +
-                'check 1 minute interval in -path_check_HIST- ' +
-                '\n' +
-                '         please check PATH !'+
-                '\n'):
-                #--- read HIST file ---
-                buf_str = []
-                frm = '%d.%m.%Y %H:%M:%S'
-                try:
-                    with open(values['-path_check_HIST-'],"r") as fh:
-                        buf_str = fh.read().splitlines()
-                        cr, pr, dtt_cr, dtt_pr = 0, 0, '', ''
-                        for i, item in enumerate(buf_str):
-                            dtt_pr = dtt_cr
-                            dtt_cr = datetime.strptime(item.split('|')[0], frm)
-                            ind_sec = int(dtt_cr.replace(tzinfo=timezone.utc).timestamp())
-                            if i == 0:
-                                cr, pr = ind_sec, 0
-                            else:
-                                pr = cr
-                                cr = ind_sec
-                            if cr - pr > 60:
-                                print(dtt_pr, ' ... ', dtt_cr)
-                except Exception as ex:
-                    sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
         #---------------------------------------------------------------
         #window.FindElement('txt_data').Update('\n'.join(stroki))
         stts = 10*' ' + time.strftime(frm, time.localtime()) + 5*' ' + 'event = ' + event
