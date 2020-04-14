@@ -369,6 +369,24 @@ def main():
     ]
     _gl = Class_PACK()      # init db_TODAY ------------------------
 
+    cfg = _gl.db_PCK_arc.read_tbl('cfg_PACK')
+    if cfg[0] == 0:
+        arr = _gl.unpack_str_cfg(cfg[1])
+
+    hst = _gl.db_PCK_arc.read_tbl('hist_PACK')
+    if hst[0] == 0:
+        _gl.hst_pck_a = hst[1][:]
+        arr = _gl.unpack_str_pck(hst[1])
+        if arr[0] == 0:
+            _gl.arr_pck_a = arr[1][:]
+
+    hst = _gl.db_PCK_tod.read_tbl('hist_PACK_today')
+    if hst[0] == 0:
+        _gl.hst_pck_t = hst[1][:]
+        arr = _gl.unpack_str_pck(hst[1])
+        if arr[0] == 0:
+            _gl.arr_pck_t = arr[1][:]
+
     X_bot_left,  Y_bot_left  = 0,    0
     X_top_right, Y_top_right = 1040, 500
 
