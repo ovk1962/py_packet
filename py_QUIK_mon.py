@@ -151,9 +151,10 @@ def main():
     _gl.unpack_cfg()
 
     menu_def = [['MODE',
-                ['AUTO', 'Manual', '---', 'Exit',],],
+                    ['AUTO', 'Manual', '---',
+                     'Exit',],],
                 ['DIAG',
-                ['rd_term_FUT',  'rd_term_HST',   '---',],],
+                    ['rd_term_FUT',  'rd_term_HST',   '---',],],
                 ]
 
     layout1 = [[sg.Menu(menu_def)                                   ],
@@ -163,8 +164,8 @@ def main():
                sg.Button('Launch 3'),
                sg.Button('Exit')                                   ]]
 
-    sg.theme('DarkTeal12')   # Add a touch of color
-    win1 = sg.Window('Window 1', layout1)
+    #sg.theme('DarkTeal12')   # Add a touch of color
+    win1 = sg.Window(_gl.titul, grab_anywhere=True).Layout(layout1).Finalize()
     win2_active = False
     win3_active = False
 
@@ -183,7 +184,8 @@ def main():
             layout2 = [ [sg.Text('Window 2')],
                         [sg.Input(do_not_clear=True, key='-in_layout_2-')],
                         [sg.Button('Close')]]
-            win2 = sg.Window('Window 2', layout2)
+            #win2 = sg.Window('Window 2', layout2)
+            win2 = sg.Window('Window 2', grab_anywhere=True).Layout(layout2).Finalize()
         if win2_active:
             ev2, vals2 = win2.Read(timeout=100)
             #print('ev2 = ', ev2, '    vals2 = ', vals2)
@@ -200,7 +202,8 @@ def main():
                         [sg.Input(do_not_clear=True, key='-in_layout_3-')],
                         [sg.Text(text=' ', size=(15,1))],
                         [sg.Button('Close')]]
-            win3 = sg.Window('Window 3', layout3)
+            #win3 = sg.Window('Window 3', layout3)
+            win3 = sg.Window('Window 3', grab_anywhere=True).Layout(layout3).Finalize()
         if win3_active:
             ev3, vals3 = win3.Read(timeout=100)
             #print('ev3 = ', ev3, '    vals3 = ', vals3)
