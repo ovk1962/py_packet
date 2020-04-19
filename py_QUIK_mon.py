@@ -154,58 +154,66 @@ def main():
                     ['AUTO', 'Manual', '---',
                      'Exit',],],
                 ['DIAG',
-                    ['rd_term_FUT',  'rd_term_HST',   '---',],],
+                    ['update_cfg_SOFT',  'update_cfg_PACK',  '---',
+                     'rd_term_FUT',      'rd_term_HST',      '---',],],
                 ]
 
-    layout1 = [[sg.Menu(menu_def)                                   ],
-              [sg.Input(do_not_clear=True, key='-INPUT_1-')         ],
-              [sg.Text(text=' ', size=(15,1), key='-in_tab-')       ],
-              [sg.Button('Launch 2'),
-               sg.Button('Launch 3'),
-               sg.Button('Exit')                                   ]]
+    layout1 = [ [sg.Menu(menu_def)                                   ],
+                [sg.Input(do_not_clear=True, key='-INPUT_1-')        ],
+                [sg.Text(text=' ', size=(15,1), key='-in_tab-')      ],
+                [sg.Button('Launch 2'),
+                    sg.Button('Launch 3'),
+                    sg.Button('Exit')                                ]]
+
+    lay_cfg_SOFT = [ [sg.Text('update_cfg_SOFT')],
+                [sg.Text('titul',          size=(15, 1)), sg.Input(_gl.titul,           do_not_clear=True, key='-titul-') ],
+                [sg.Text('path_file_DATA', size=(15, 1)), sg.Input(_gl.path_file_DATA,  do_not_clear=True, key='-path_DATA-'), sg.FileBrowse()],
+                [sg.Text('path_file_HIST', size=(15, 1)), sg.Input(_gl.path_file_HIST,  do_not_clear=True, key='-path_HIST-'), sg.FileBrowse()],
+                [sg.Text('path_file_TXT',  size=(15, 1)), sg.Input(_gl.path_file_TXT,   do_not_clear=True, key='-path_TXT-'),   sg.FileBrowse()],
+                [sg.Button('update cfg_SOFT', key='-update_cfg_SOFT-'), sg.Button('Close')],]
+
+    layout3 = [ [sg.Text('Window 3')],
+                [sg.Input(do_not_clear=True, key='-in_layout_3-')],
+                [sg.Text(text=' ', size=(15,1))],
+                [sg.Button('Close')]]
 
     #sg.theme('DarkTeal12')   # Add a touch of color
     win1 = sg.Window(_gl.titul, grab_anywhere=True).Layout(layout1).Finalize()
-    win2_active = False
+    cfg_SOFT_active = False
     win3_active = False
 
     while True:
         #--- read 'Window 1' -------------------------------------------
-        ev1, vals1 = win1.Read(timeout=100)
-        #print('ev1 = ', ev1, '    vals1 = ', vals1)
+        ev1, vals1 = win1.Read(timeout=500)
+        print('ev1 = ', ev1, '    vals1 = ', vals1)
         if ev1 is None or ev1 == 'Exit':
             break
         if ev1 == '__TIMEOUT__':
             win1.FindElement('-in_tab-').Update(vals1['-INPUT_1-'])
 
-        #--- open 'Window 2' -------------------------------------------
-        if not win2_active and ev1 == 'Launch 2':
-            win2_active = True
-            layout2 = [ [sg.Text('Window 2')],
-                        [sg.Input(do_not_clear=True, key='-in_layout_2-')],
-                        [sg.Button('Close')]]
-            #win2 = sg.Window('Window 2', layout2)
-            win2 = sg.Window('Window 2', grab_anywhere=True).Layout(layout2).Finalize()
-        if win2_active:
-            ev2, vals2 = win2.Read(timeout=100)
+        #--- open 'win_cfg_SOFT' ---------------------------------------
+        if ev1 == 'update_cfg_SOFT' and not cfg_SOFT_active:
+            cfg_SOFT_active = True
+            win_cfg_SOFT = sg.Window('update_cfg_SOFT', location=(50,50)).Layout(lay_cfg_SOFT[:]).Finalize()
+
+        #--- open 'Window 3' -------------------------------------------
+        if ev1 == 'Launch 3' and not win3_active:
+            win3_active = True
+            win3 = sg.Window('Window 3', location=(150,400)).Layout(layout3[:]).Finalize()
+
+        #--- check 'update_cfg_SOFT' -----------------------------------
+        if cfg_SOFT_active:
+            ev2, vals2 = win_cfg_SOFT.Read(timeout=100)
             #print('ev2 = ', ev2, '    vals2 = ', vals2)
             if ev2 is None or ev2 == 'Close' or ev2 == 'Exit':
-                win2_active  = False
-                win2.Close()
+                cfg_SOFT_active  = False
+                win_cfg_SOFT.Close()
             if ev2 == '__TIMEOUT__':
                 pass
 
-        #--- open 'Window 3' -------------------------------------------
-        if not win3_active and ev1 == 'Launch 3':
-            win3_active = True
-            layout3 = [ [sg.Text('Window 3')],
-                        [sg.Input(do_not_clear=True, key='-in_layout_3-')],
-                        [sg.Text(text=' ', size=(15,1))],
-                        [sg.Button('Close')]]
-            #win3 = sg.Window('Window 3', layout3)
-            win3 = sg.Window('Window 3', grab_anywhere=True).Layout(layout3).Finalize()
+        #--- check 'Window 3' ------------------------------------------
         if win3_active:
-            ev3, vals3 = win3.Read(timeout=100)
+            ev3, vals3 = win3.Read(timeout=500)
             #print('ev3 = ', ev3, '    vals3 = ', vals3)
             if ev3 is None or ev3 == 'Close' or ev3 == 'Exit':
                 win3_active  = False
