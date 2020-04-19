@@ -121,9 +121,9 @@ class Class_TERM():
         self.account = Class_ACCOUNT()  # obj Class_ACCOUNT()
         #
         self.hst_fut_t = []
-        self.arr_fut_t = []
+        #self.arr_fut_t = []
         self.hst_fut_a = []
-        self.arr_fut_a = []
+        #self.arr_fut_a = []
 
     def prn_arr(self, name_arr, arr):
         print('len(' + name_arr + ')   => ' + str(len(arr)) + '\n' )
