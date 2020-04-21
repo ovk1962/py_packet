@@ -150,7 +150,7 @@ def event_menu(event, values, _gl):
     #-------------------------------------------------------------------
     if event == 'wr_HIST_file'  :
         print('wr_HIST_file ... save hist_FUT_today into file')
-        if 'OK' == sg.popup_ok_cancel('\n   Save data from table *hist_FUT_today*   ' +
+        if 'OK' == sg.PopupOKCancel('\n   Save data from table *hist_FUT_today*   ' +
                                       '\n      into file *path_file_TXT*   \n'):
             hst = _gl.db_FUT_tod.read_tbl('hist_FUT_today')
             if hst[0] > 0:
@@ -171,12 +171,12 @@ def event_menu(event, values, _gl):
                             file_HIST.write(item[1]+'\n')
                 else:
                     print('hist_FUT_today IS empty')
-                    sg.popup_error('\n    Warning! \nTable *hist_FUT_today* IS empty!\n',
+                    sg.PopupError('\n    Warning! \nTable *hist_FUT_today* IS empty!\n',
                                     background_color = 'grey',
                                     no_titlebar = True)
     #-------------------------------------------------------------------
     if event == '-update_cfg_SOFT-':
-        if 'OK' == sg.popup_ok_cancel('\n' + 'Update table *cfg_SOFT*' + '\n'):
+        if 'OK' == sg.PopupOKCancel('\n' + 'Update table *cfg_SOFT*' + '\n'):
             _gl.titul          = values['-titul-']
             _gl.path_file_DATA = values['-path_DATA-']
             _gl.path_file_HIST = values['-path_HIST-']
@@ -192,15 +192,15 @@ def event_menu(event, values, _gl):
 
             rq = _gl.db_FUT_tod.update_tbl('cfg_SOFT', cfg, val = ' VALUES(?,?)')
             if rq[0] > 0:
-                sg.popup_error('\n' + 'Did not update cfg_SOFT!' + '\n'
+                sg.PopupError('\n' + 'Did not update cfg_SOFT!' + '\n'
                                 + rep[1] + '\n',
                                 background_color = 'brown',
                                 no_titlebar = True)
             else:
-                sg.popup_ok('\nUpdated *cfg_SOFT* successfully !\n')
+                sg.PopupOK('\nUpdated *cfg_SOFT* successfully !\n')
     #-------------------------------------------------------------------
     if event == 'del_HIST_tod':
-        if 'OK' == sg.popup_ok_cancel('\nAre you sure to delete data in table *hist_FUT_today* ?\n'):
+        if 'OK' == sg.PopupOKCancel('\nAre you sure to delete data in table *hist_FUT_today* ?\n'):
             try:
                 conn = sqlite3.connect(os.path.abspath(os.curdir) + '\\DB\\db_fut_t.sqlite')
                 with conn:
@@ -208,10 +208,10 @@ def event_menu(event, values, _gl):
                     #--- update table nm_tbl ---------------------------
                     cur.execute('DELETE FROM ' + 'hist_FUT_today')
                     conn.commit()
-                    sg.popup_ok('\nOK, it was delete data in table *hist_FUT_today* successfully !\n')
+                    sg.PopupOK('\nOK, it was delete data in table *hist_FUT_today* successfully !\n')
             except Exception as ex:
-                sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
-        if 'OK' == sg.popup_ok_cancel('\nAre you sure to delete data in table *hist_PACK_today* ?\n'):
+                sg.PopupError('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
+        if 'OK' == sg.PopupOKCancel('\nAre you sure to delete data in table *hist_PACK_today* ?\n'):
             try:
                 conn = sqlite3.connect(os.path.abspath(os.curdir) + '\\DB\\db_pack_t.sqlite')
                 with conn:
@@ -219,12 +219,12 @@ def event_menu(event, values, _gl):
                     #--- update table nm_tbl ---------------------------
                     cur.execute('DELETE FROM ' + 'hist_PACK_today')
                     conn.commit()
-                    sg.popup_ok('\nOK, it was delete data in table *hist_PACK_today* successfully !\n')
+                    sg.PopupOK('\nOK, it was delete data in table *hist_PACK_today* successfully !\n')
             except Exception as ex:
-                sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
+                sg.PopupError('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
     #---------------------------------------------------------------
     if event == '-check_HIST_file-':
-        if 'OK' == sg.popup_ok_cancel('\n' +
+        if 'OK' == sg.PopupOKCancel('\n' +
             'check 1 minute interval in -path_check_HIST- ' +
             '\n' +
             '         please check PATH !'+
@@ -248,7 +248,7 @@ def event_menu(event, values, _gl):
                         if cr - pr > 60:
                             print(dtt_pr, ' ... ', dtt_cr)
             except Exception as ex:
-                sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
+                sg.PopupError('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
     #-------------------------------------------------------------------
     if event == 'load_HIST_arc':
         #--- read HIST file ---
@@ -267,7 +267,7 @@ def event_menu(event, values, _gl):
                     buf_hist.append(item)
                 mn_pr = mn_cr
         except Exception as ex:
-            sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
+            sg.PopupError('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
             return
         #--- prepaire 'buf_hist' for update table 'hist_fut'
         buf_hist_arch, frm = [], '%d.%m.%Y %H:%M:%S'
@@ -288,9 +288,9 @@ def event_menu(event, values, _gl):
                 #self.cur.execute('DELETE FROM ' + 'hist_FUT_today')
                 cur.executemany('INSERT INTO ' + 'hist_FUT' + ' VALUES' + '(?,?)', buf_hist_arch)
                 conn.commit()
-                sg.popup_ok('\nOK, it was append data in table *hist_FUT* successfully !\n')
+                sg.PopupOK('\nOK, it was append data in table *hist_FUT* successfully !\n')
         except Exception as ex:
-            sg.popup_error('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
+            sg.PopupError('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
     #-------------------------------------------------------------------
 
     print('rq = ', rq)

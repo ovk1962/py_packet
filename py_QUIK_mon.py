@@ -115,8 +115,15 @@ class Class_GL():
         self.titul          = ''    # term ALFA
         self.path_file_DATA = ''    # c:\\str_log_ad_A7.txt
         self.path_file_HIST = ''    # c:\\hist_log_ad_A7.txt
+        self.dt_start       = ''    # 2017-01-01 00:00:00
         self.dt_start_sec   = 0     # 2017-01-01 00:00:00
         self.path_file_TXT  = ''    # c:\\hist_log_ALOR.txt
+        # cfg_pack
+        self.nm   = []  # list NM   of packets
+        self.koef = []  # list KOEF of packets
+        self.nul  = []  # list NUL  of packets
+        self.ema  = []  # list EMA  of packets
+        #
 
     def prn_cfg(self):
         frm = '{: <18}{: <55}'
@@ -127,8 +134,8 @@ class Class_GL():
         print(frm.format('path_file_HIST', self.path_file_HIST))
         print(frm.format('path_file_TXT',  self.path_file_TXT))
 
-    def unpack_cfg(self):
-        print('=> _TERM unpack_cfg')
+    def unpack_cfg_soft(self):
+        print('=> _GL unpack_cfg_soft')
         try:
             cfg = self.db_tod.read_tbl('cfg_SOFT')
             if cfg[0] > 0: return cfg
@@ -145,10 +152,110 @@ class Class_GL():
         except Exception as ex:
             return [1, ex]
         return [0, cfg]
+
+    def unpack_cfg_pack(self):
+        print('=> _GL unpack_cfg_pack ')
+        try:
+            cfg = self.db_tod.read_tbl('cfg_PACK')
+            if cfg[0] > 0: return cfg
+            self.nm   = []  # list NM   of packets
+            self.koef = []  # list KOEF of packets
+            self.nul  = []  # list NUL  of packets
+            self.ema  = []
+            for item in cfg[1]:
+                self.nm.append(item[0])          # ['pckt0']
+                arr_k    = item[1].split(',')
+                arr_koef = []
+                for item_k in arr_k:             # '0:2:SR' => [0, 32, 'SR']
+                    buf_k = [int(f) if f.replace('-','').isdigit() else f for f in item_k.split(':')]
+                    arr_koef.append(buf_k)
+                self.koef.append(arr_koef)       #  [[0, 2, 'SR'],[9, -20, 'MX'], ...
+                self.nul.append(int(item[2]))    #  [0]
+                self.ema.append([int(e) for e in item[3].split(':')]) # [1111, 15]
+            #-----------------------------------------------------------
+            frm = '{: ^5}{: ^15}{}{}{}'
+            print(frm.format('nm','nul','ema[]','        ','koef[]'))
+            for i, item in enumerate(self.nm):
+                print(frm.format(self.nm[i],
+                            str(self.nul[i]),
+                                self.ema[i], '   ',
+                                self.koef[i]))
+            #-----------------------------------------------------------
+        except Exception as ex:
+            return [1, ex]
+
+        return [0, cfg]
+#=======================================================================
+def event_menu_win_MAIN(ev, values, _gl, win):
+    rq = [0,ev]
+    #-------------------------------------------------------------------
+    os.system('cls')  # on windows
+    #-------------------------------------------------------------------
+    if ev == '__TIMEOUT__':
+        print('ev ... __TIMEOUT__ ...')
+    #-------------------------------------------------------------------
+
+    #-------------------------------------------------------------------
+    print('rq = ', rq)
+#=======================================================================
+def event_menu_CFG_SOFT(ev, values, _gl, win):
+    rq = [0,ev]
+    #-------------------------------------------------------------------
+    os.system('cls')  # on windows
+    #-------------------------------------------------------------------
+    if ev == '__TIMEOUT__':
+        print('ev ... __TIMEOUT__ ...')
+    #-------------------------------------------------------------------
+    if ev == '-update_cfg_SOFT-':
+        print('ev ... -update_cfg_SOFT- ...')
+        if 'OK' == sg.PopupOKCancel('\n' + 'Update table *cfg_SOFT*' + '\n'):
+            _gl.titul          = values['-titul-']
+            _gl.path_file_DATA = values['-path_DATA-']
+            _gl.path_file_HIST = values['-path_HIST-']
+            _gl.dt_start       = values['-dt_start-']
+            _gl.path_file_TXT  = values['-path_TXT-']
+
+            cfg = []
+            cfg.append(['titul',          _gl.titul])
+            cfg.append(['path_file_DATA', _gl.path_file_DATA])
+            cfg.append(['path_file_HIST', _gl.path_file_HIST])
+            cfg.append(['dt_start',       _gl.dt_start])
+            cfg.append(['path_file_TXT',  _gl.path_file_TXT])
+
+            rq = _gl.db_tod.update_tbl('cfg_SOFT', cfg, val = ' VALUES(?,?)')
+            if rq[0] > 0:
+                sg.PopupError('\n' + 'Did not update cfg_SOFT!' + '\n'
+                                + rep[1] + '\n',
+                                background_color = 'brown',
+                                no_titlebar = True)
+            else:
+                sg.PopupOK('\nUpdated *cfg_SOFT* successfully !\n')
+    #-------------------------------------------------------------------
+    print('rq = ', rq)
+#=======================================================================
+def event_menu_CFG_PACK(ev, val, _gl, win):
+    rq = [0,ev]
+    #-------------------------------------------------------------------
+    os.system('cls')  # on windows
+    #-------------------------------------------------------------------
+    if ev == '__TIMEOUT__':
+        print('__TIMEOUT__')
+    #-------------------------------------------------------------------
+    if ev == '-rd_cfg_PACK-':
+        print('-nm_pack- = ', int(val['-nm_pack-']) )
+        win.FindElement('-nm-').Update(_gl.nm[int(val['-nm_pack-'])])
+        win.FindElement('-koef-').Update(_gl.koef[int(val['-nm_pack-'])])
+        win.FindElement('-ema-').Update(_gl.ema[int(val['-nm_pack-'])])
+    #-------------------------------------------------------------------
+    if ev == '-update_cfg_PACK-':
+        print('-update_cfg_PACK-')
+    #-------------------------------------------------------------------
+    print('rq = ', rq)
 #=======================================================================
 def main():
     _gl = Class_GL()
-    _gl.unpack_cfg()
+    _gl.unpack_cfg_soft()
+    _gl.unpack_cfg_pack()
 
     menu_def = [['MODE',
                     ['AUTO', 'Manual', '---',
@@ -158,68 +265,68 @@ def main():
                      'rd_term_FUT',      'rd_term_HST',      '---',],],
                 ]
 
-    layout1 = [ [sg.Menu(menu_def)                                   ],
-                [sg.Input(do_not_clear=True, key='-INPUT_1-')        ],
-                [sg.Text(text=' ', size=(15,1), key='-in_tab-')      ],
-                [sg.Button('Launch 2'),
-                    sg.Button('Launch 3'),
-                    sg.Button('Exit')                                ]]
+    lay_MAIN = [ [sg.Menu(menu_def)                               ],
+                [sg.Multiline(' ', size=(45, 1), do_not_clear=True, key='-INPUT_1-')     ],
+                [sg.Button('Exit')                                ]]
 
-    lay_cfg_SOFT = [ [sg.Text('update_cfg_SOFT')],
+    lay_cfg_SOFT = [ #[sg.Text('update_cfg_SOFT')],
                 [sg.Text('titul',          size=(15, 1)), sg.Input(_gl.titul,           do_not_clear=True, key='-titul-') ],
                 [sg.Text('path_file_DATA', size=(15, 1)), sg.Input(_gl.path_file_DATA,  do_not_clear=True, key='-path_DATA-'), sg.FileBrowse()],
                 [sg.Text('path_file_HIST', size=(15, 1)), sg.Input(_gl.path_file_HIST,  do_not_clear=True, key='-path_HIST-'), sg.FileBrowse()],
+                [sg.Text('dt_start',       size=(15, 1)), sg.Input(_gl.dt_start,        do_not_clear=True, key='-dt_start-')],
                 [sg.Text('path_file_TXT',  size=(15, 1)), sg.Input(_gl.path_file_TXT,   do_not_clear=True, key='-path_TXT-'),   sg.FileBrowse()],
                 [sg.Button('update cfg_SOFT', key='-update_cfg_SOFT-'), sg.Button('Close')],]
 
-    layout3 = [ [sg.Text('Window 3')],
-                [sg.Input(do_not_clear=True, key='-in_layout_3-')],
-                [sg.Text(text=' ', size=(15,1))],
-                [sg.Button('Close')]]
+    lay_cfg_PACK = [ #[sg.Text('update_cfg_PACK')],
+                [sg.Button('read cfg_PACK', key='-rd_cfg_PACK-'),
+                 sg.Slider(range=(0, len(_gl.nm)-1), orientation='h',    size=(23, 15), default_value=0, key='-nm_pack-'),],
+                [sg.Text('nm',   size=(4, 1)), sg.Input(_gl.nm[0],       size=(45, 1), do_not_clear=True, key='-nm-') ],
+                [sg.Text('koef', size=(4, 1)), sg.Multiline(_gl.koef[0], size=(45, 1), do_not_clear=True, key='-koef-') ],
+                [sg.Text('ema',  size=(4, 1)), sg.Input(_gl.ema[0],      size=(45, 1), do_not_clear=True, key='-ema-') ],
+                [sg.Button('update cfg_PACK', key='-update_cfg_PACK-'), sg.Button('Close')],]
 
     #sg.theme('DarkTeal12')   # Add a touch of color
-    win1 = sg.Window(_gl.titul, grab_anywhere=True).Layout(layout1).Finalize()
+    win_MAIN = sg.Window(_gl.titul, grab_anywhere=True).Layout(lay_MAIN).Finalize()
     cfg_SOFT_active = False
-    win3_active = False
+    cfg_PACK_active = False
 
     while True:
-        #--- read 'Window 1' -------------------------------------------
-        ev1, vals1 = win1.Read(timeout=500)
-        print('ev1 = ', ev1, '    vals1 = ', vals1)
-        if ev1 is None or ev1 == 'Exit':
+        #--- check 'Window MAIN' ---------------------------------------
+        ev_MAIN, vals_MAIN = win_MAIN.Read(timeout=500)
+        print('ev_MAIN = ', ev_MAIN, '    vals_MAIN = ', vals_MAIN)
+        if ev_MAIN is None or ev_MAIN == 'Exit':
             break
-        if ev1 == '__TIMEOUT__':
-            win1.FindElement('-in_tab-').Update(vals1['-INPUT_1-'])
+        #--- ev_cfg_SOFT 'Window cfg_SOFT' -------------------------
+        event_menu_win_MAIN(ev_MAIN, vals_MAIN, _gl, win_MAIN)
 
-        #--- open 'win_cfg_SOFT' ---------------------------------------
-        if ev1 == 'update_cfg_SOFT' and not cfg_SOFT_active:
+        #--- open 'Window cfg_SOFT' ------------------------------------
+        if ev_MAIN == 'update_cfg_SOFT' and not cfg_SOFT_active:
             cfg_SOFT_active = True
-            win_cfg_SOFT = sg.Window('update_cfg_SOFT', location=(50,50)).Layout(lay_cfg_SOFT[:]).Finalize()
-
-        #--- open 'Window 3' -------------------------------------------
-        if ev1 == 'Launch 3' and not win3_active:
-            win3_active = True
-            win3 = sg.Window('Window 3', location=(150,400)).Layout(layout3[:]).Finalize()
-
-        #--- check 'update_cfg_SOFT' -----------------------------------
+            win_cfg_SOFT = sg.Window('update_cfg_SOFT', location=(25,25)).Layout(lay_cfg_SOFT[:]).Finalize()
+        #--- check 'win_cfg_SOFT' --------------------------------------
         if cfg_SOFT_active:
-            ev2, vals2 = win_cfg_SOFT.Read(timeout=100)
-            #print('ev2 = ', ev2, '    vals2 = ', vals2)
-            if ev2 is None or ev2 == 'Close' or ev2 == 'Exit':
+            ev_cfg_SOFT, vals_cfg_SOFT = win_cfg_SOFT.Read(timeout=100)
+            #print('ev_cfg_SOFT = ', ev_cfg_SOFT, '    vals_cfg_SOFT = ', vals_cfg_SOFT)
+            if ev_cfg_SOFT is None or ev_cfg_SOFT == 'Close' or ev_cfg_SOFT == 'Exit':
                 cfg_SOFT_active  = False
                 win_cfg_SOFT.Close()
-            if ev2 == '__TIMEOUT__':
-                pass
+            #--- ev_cfg_SOFT 'Window cfg_SOFT' -------------------------
+            event_menu_CFG_SOFT(ev_cfg_SOFT, vals_cfg_SOFT, _gl, win_cfg_SOFT)
 
+        #--- open 'Window cfg_PACK' ------------------------------------
+        if ev_MAIN == 'update_cfg_PACK' and not cfg_PACK_active:
+            cfg_PACK_active = True
+            win_cfg_PACK = sg.Window('update_cfg_PACK', location=(150,200)).Layout(lay_cfg_PACK[:]).Finalize()
         #--- check 'Window 3' ------------------------------------------
-        if win3_active:
-            ev3, vals3 = win3.Read(timeout=500)
-            #print('ev3 = ', ev3, '    vals3 = ', vals3)
-            if ev3 is None or ev3 == 'Close' or ev3 == 'Exit':
-                win3_active  = False
-                win3.Close()
-            if ev3 == '__TIMEOUT__':
-                win3.FindElement('-in_layout_3-').Update(vals1['-INPUT_1-'])
+        if cfg_PACK_active:
+            ev_cfg_PACK, vals_cfg_PACK = win_cfg_PACK.Read(timeout=100)
+            #print('ev_cfg_PACK = ', ev_cfg_PACK, '    vals_cfg_PACK = ', vals_cfg_PACK)
+            if ev_cfg_PACK is None or ev_cfg_PACK == 'Close' or ev_cfg_PACK == 'Exit':
+                cfg_PACK_active  = False
+                win_cfg_PACK.Close()
+            #--- ev_cfg_PACK 'Window win_cfg_PACK' ---------------------
+            event_menu_CFG_PACK(ev_cfg_PACK, vals_cfg_PACK, _gl, win_cfg_PACK)
+
 
     return 0
 
