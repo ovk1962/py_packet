@@ -124,6 +124,45 @@ class Class_GL():
         self.nul  = []  # list NUL  of packets
         self.ema  = []  # list EMA  of packets
         #
+        self.dt_start_sec = 0
+        #
+        self.dt_file = 0        # curv stamptime data file path_file_DATA
+        self.dt_data = 0        # curv stamptime DATA/TIME from TERM
+        self.data_in_file = []  # ar_file   list of strings from path_file_DATA
+        self.hist_in_file = []  # list of strings from path_file_HIST
+        #
+        self.dt_fut  = []               # list of Class_FUT()
+        self.account = Class_ACCOUNT()  # obj Class_ACCOUNT()
+        #
+        self.hst_fut_t = []
+        self.arr_fut_t = []
+        self.hst_fut_a = []
+        self.arr_fut_a = []
+
+    def check_MARKET_time(self,term_dt):
+        try:
+            dtt = datetime.strptime(term_dt, "%d.%m.%Y %H:%M:%S")
+            cur_time = dtt.second + 60 * dtt.minute + 60 * 60 * dtt.hour
+            if (
+                (cur_time > 35995  and # from 09:59:55 to 14:00:05
+                cur_time < 50415) or   #
+                (cur_time > 50685  and # from 14:04:55 to 18:45:05
+                cur_time < 67505) or
+                (cur_time > 68695  and # from 19:04:55 to 23:50:05
+                cur_time < 85805)):
+                    return True
+        except Exception as ex:
+            print('ERROR term_dt = ', term_dt)
+        return False
+
+    def prn_arr(self, name_arr, arr):
+        print('len(' + name_arr + ')   => ' + str(len(arr)) + '\n' )
+        if len(arr) > 4:
+            for i in [0,1]: print(arr[i],'\n')
+            print('+++++++++++++++++++++++++\n')
+            for i in [-2,-1]: print(arr[i],'\n')
+        else:
+            for item in arr: print(item, '\n')
 
     def prn_cfg(self):
         frm = '{: <18}{: <55}'
@@ -185,6 +224,155 @@ class Class_GL():
             return [1, ex]
 
         return [0, cfg]
+
+    def rd_term_FUT(self):
+        # read data FUT from file 'path_file_DATA'----------------------
+        # check -
+        #       file 'file_path_DATA'
+        #       size of file
+        #       time modificated of file
+        #       size of TERM file
+        # update table 'data_FUT' into DB 'db_FUT_tod'------------------
+        print('=> _TERM rd_term_FUT')
+        try:
+            #--- check file self.file_path_DATA ------------------------
+            if not os.path.isfile(self.path_file_DATA):
+                return [2, 'can not find file => path_file_DATA']
+            buf_stat = os.stat(self.path_file_DATA)
+            #--- check size of file ------------------------------------
+            if buf_stat.st_size == 0:
+                return [3, 'size DATA file is NULL']
+            #--- check time modificated of file ------------------------
+            if int(buf_stat.st_mtime) == self.dt_file:
+                #str_dt_file = datetime.fromtimestamp(self.dt_file).strftime('%H:%M:%S')
+                return [4, 'FILE is not modificated ' + time.strftime("%M:%S", time.gmtime())]
+            else:
+                self.dt_file = int(buf_stat.st_mtime)
+            #--- read TERM file ----------------------------------------
+            buf_str = []
+            with open(self.path_file_DATA,"r") as fh:
+                buf_str = fh.read().splitlines()
+            #--- check size of list/file -------------------------------
+            if len(buf_str) == 0:
+                return [4, 'size buf_str is NULL']
+            self.data_in_file = []
+            self.data_in_file = buf_str[:]
+            #for i in self.data_in_file:   print(i)
+            #--- update table 'data_FUT' -------------------------------
+            buf_arr = ((j,) for j in self.data_in_file)
+            rep = self.db_tod.update_tbl('data_FUT', buf_arr, val = ' VALUES(?)')
+            if rep[0] > 0: return rep
+            #
+            self.unpack_data_in_file()
+        except Exception as ex:
+            return [1, ex]
+        return [0, 'ok']
+
+    def rd_term_HST(self):
+        # read HIST from file 'path_file_HIST'--------------------------
+        # check -
+        #       file 'path_file_HIST'
+        #       size of file
+        #       read HIST file
+        #       size of TERM file
+        #       MARKET time
+        # update table 'data_FUT' into DB 'db_FUT_tod'------------------
+        print('=> _TERM rd_term_HST')
+        try:
+            #--- check file self.path_file_HIST ------------------------
+            if not os.path.isfile(self.path_file_HIST):
+                return [2, 'can not find file => path_file_HIST']
+            buf_stat = os.stat(self.path_file_HIST)
+            #--- check size of file ------------------------------------
+            if buf_stat.st_size == 0:
+                return [3, 'size HIST file is NULL']
+            #--- read HIST file ----------------------------------------
+            buf_str = []
+            with open(self.path_file_HIST,"r") as fh:
+                buf_str = fh.read().splitlines()
+            #--- check size of list/file -------------------------------
+            if len(buf_str) == 0:
+                return [4, 'the size buf_str(HIST) is NULL ']
+            #--- check MARKET time from 10:00 to 23:45 -----------------
+            self.hist_in_file = []
+            error_MARKET_time = False
+            for i, item in enumerate(buf_str):
+                term_dt = item.split('|')[0]
+                if self.check_MARKET_time(term_dt):
+                    self.hist_in_file.append(item)
+                else:
+                    error_MARKET_time = True
+                    print('error string is ',i)
+            #--- repeir file 'path_file_HIST' --------------------------
+            if error_MARKET_time:
+                with open(self.path_file_HIST, 'w') as file_HIST:
+                    for item in self.hist_in_file:
+                        file_HIST.write(item+'\n')
+            #--- update table 'hist_FUT' -------------------------------
+            buf_list =[]
+            pAsk, pBid = range(2)
+            if len(self.hist_in_file) > 0:
+                frm = '%d.%m.%Y %H:%M:%S'
+                for it in self.hist_in_file:
+                    dtt = datetime.strptime(it.split('|')[0], frm)
+                    ind_sec  = int(dtt.replace(tzinfo=timezone.utc).timestamp())
+                    buf_list.append([ind_sec, it])
+            rep = self.db_tod.update_tbl('hist_FUT', buf_list, val = ' VALUES(?,?)')
+            if rep[0] > 0: return rep
+            #--- update 'self.arr_fut_t' -------------------------------
+            self.arr_fut_t = []
+            self.arr_fut_t = self.unpack_str_fut(buf_list)[1]
+
+        except Exception as ex:
+            return [1, ex]
+        return [0, 'ok']
+
+    def unpack_data_in_file(self):
+        print('=> _TERM unpack_data_in_file')
+        try:
+            self.dt_fut = []
+            acc = self.account
+            for i, item in enumerate(self.data_in_file):
+                lst = ''.join(item).replace(',','.').split('|')
+                del lst[-1]
+                if   i == 0:
+                    acc.dt  = lst[0]
+                elif i == 1:
+                    acc.arr = [float(j) for j in lst]
+                else:
+                    b_fut = Class_FUT()
+                    b_fut.sP_code = lst[0]
+                    b_fut.arr     = [float(k) for k in lst[1:]]
+                    self.dt_fut.append(b_fut)
+        except Exception as ex:
+            return [1, ex]
+        return [0, 'ok']
+
+    def unpack_str_fut(self, hist_fut):
+        print('=> _PACK unpack_str_fut ', len(hist_fut))
+        try:
+            arr_fut = []
+            for cnt, i_str in enumerate(hist_fut):
+                mn_pr, mn_cr = '', ''
+                if cnt == 0 :
+                    mn_pr, mn_cr = '', '00'
+                else:
+                    mn_pr = hist_fut[cnt-1][1][14:16]
+                    mn_cr = hist_fut[cnt-0][1][14:16]
+                if mn_pr != mn_cr:
+                    s = Class_str_FUT()
+                    s.ind_s = i_str[0]
+                    s.dt    = i_str[1].split('|')[0].split(' ')
+                    arr_buf = i_str[1].replace(',', '.').split('|')[1:-1]
+                    fAsk, fBid = range(2)
+                    for item in (zip(arr_buf[::2], arr_buf[1::2])):
+                        s.arr.append([float(item[fAsk]), float(item[fBid])])
+                    arr_fut.append(s)
+                if len(arr_fut) % 100 == 0:  print(len(arr_fut), end='\r')
+        except Exception as ex:
+            return [1, ex]
+        return [0, arr_fut]
+
 #=======================================================================
 def event_menu_win_MAIN(ev, values, _gl, win):
     rq = [0,ev]
@@ -192,7 +380,36 @@ def event_menu_win_MAIN(ev, values, _gl, win):
     os.system('cls')  # on windows
     #-------------------------------------------------------------------
     if ev == '__TIMEOUT__':
-        print('ev ... __TIMEOUT__ ...')
+        print('event_menu_win_MAIN ... __TIMEOUT__ ...')
+        _gl.rd_term_FUT()
+        win.FindElement('-inp_MAIN-').Update(_gl.account.dt
+            +'\nPROFIT = ' + str(_gl.account.arr[_gl.account.prf]))
+
+    #-------------------------------------------------------------------
+    if ev == 'rd_term_FUT'  :
+        if 'OK' == sg.PopupOKCancel('\nRead file  *file_path_DATA*\n'):
+            rep = _gl.rd_term_FUT()
+            if rep[0] > 0:
+                sg.PopupError('\nDid not read file!\n'
+                                + rep[1] + '\n',
+                                background_color = 'brown',
+                                no_titlebar = True)
+            else:
+                print(_gl.account)
+                for i in _gl.dt_fut:   print(i)
+                sg.PopupOK('\nRead *file_path_DATA* successfully !\n')
+    #-------------------------------------------------------------------
+    if ev == 'rd_term_HST'  :
+        if 'OK' == sg.PopupOKCancel('\nRead file  *path_file_HIST*\n'):
+            rep = _gl.rd_term_HST()
+            if rep[0] > 0:
+                sg.PopupError('\nDid not read file!\n'
+                                + rep[1] + '\n',
+                                background_color = 'brown',
+                                no_titlebar = True)
+            else:
+                rq = _gl.prn_arr('arr_fut_t', _gl.arr_fut_t)
+                sg.PopupOK('\nRead *path_file_HIST* successfully !\n')
     #-------------------------------------------------------------------
 
     #-------------------------------------------------------------------
@@ -204,7 +421,7 @@ def event_menu_CFG_SOFT(ev, values, _gl, win):
     os.system('cls')  # on windows
     #-------------------------------------------------------------------
     if ev == '__TIMEOUT__':
-        print('ev ... __TIMEOUT__ ...')
+        print('event_menu_CFG_SOFT ... __TIMEOUT__ ...')
     #-------------------------------------------------------------------
     if ev == '-update_cfg_SOFT-':
         print('ev ... -update_cfg_SOFT- ...')
@@ -239,7 +456,7 @@ def event_menu_CFG_PACK(ev, val, _gl, win):
     os.system('cls')  # on windows
     #-------------------------------------------------------------------
     if ev == '__TIMEOUT__':
-        print('__TIMEOUT__')
+        print('event_menu_CFG_PACK ... __TIMEOUT__ ...')
     #-------------------------------------------------------------------
     if ev == '-rd_cfg_PACK-':
         print('-nm_pack- = ', int(val['-nm_pack-']) )
@@ -256,6 +473,8 @@ def main():
     _gl = Class_GL()
     _gl.unpack_cfg_soft()
     _gl.unpack_cfg_pack()
+    _gl.rd_term_FUT()
+    _gl.rd_term_HST()
 
     menu_def = [['MODE',
                     ['AUTO', 'Manual', '---',
@@ -266,15 +485,15 @@ def main():
                 ]
 
     lay_MAIN = [ [sg.Menu(menu_def)                               ],
-                [sg.Multiline(' ', size=(45, 1), do_not_clear=True, key='-INPUT_1-')     ],
+                [sg.Multiline(' ', size=(45, 1), do_not_clear=True, key='-inp_MAIN-')     ],
                 [sg.Button('Exit')                                ]]
 
     lay_cfg_SOFT = [ #[sg.Text('update_cfg_SOFT')],
-                [sg.Text('titul',          size=(15, 1)), sg.Input(_gl.titul,           do_not_clear=True, key='-titul-') ],
-                [sg.Text('path_file_DATA', size=(15, 1)), sg.Input(_gl.path_file_DATA,  do_not_clear=True, key='-path_DATA-'), sg.FileBrowse()],
-                [sg.Text('path_file_HIST', size=(15, 1)), sg.Input(_gl.path_file_HIST,  do_not_clear=True, key='-path_HIST-'), sg.FileBrowse()],
-                [sg.Text('dt_start',       size=(15, 1)), sg.Input(_gl.dt_start,        do_not_clear=True, key='-dt_start-')],
-                [sg.Text('path_file_TXT',  size=(15, 1)), sg.Input(_gl.path_file_TXT,   do_not_clear=True, key='-path_TXT-'),   sg.FileBrowse()],
+                [sg.Text('titul',          size=(15, 1)), sg.Input('', do_not_clear=True, key='-titul-') ],
+                [sg.Text('path_file_DATA', size=(15, 1)), sg.Input('', do_not_clear=True, key='-path_DATA-'), sg.FileBrowse()],
+                [sg.Text('path_file_HIST', size=(15, 1)), sg.Input('', do_not_clear=True, key='-path_HIST-'), sg.FileBrowse()],
+                [sg.Text('dt_start',       size=(15, 1)), sg.Input('', do_not_clear=True, key='-dt_start-')],
+                [sg.Text('path_file_TXT',  size=(15, 1)), sg.Input('', do_not_clear=True, key='-path_TXT-'),  sg.FileBrowse()],
                 [sg.Button('update cfg_SOFT', key='-update_cfg_SOFT-'), sg.Button('Close')],]
 
     lay_cfg_PACK = [ #[sg.Text('update_cfg_PACK')],
@@ -289,29 +508,41 @@ def main():
     win_MAIN = sg.Window(_gl.titul, grab_anywhere=True).Layout(lay_MAIN).Finalize()
     cfg_SOFT_active = False
     cfg_PACK_active = False
+    win_MAIN_mode, win_MAIN_timeout = 'AUTO', 300
 
     while True:
         #--- check 'Window MAIN' ---------------------------------------
-        ev_MAIN, vals_MAIN = win_MAIN.Read(timeout=500)
+        ev_MAIN, vals_MAIN = win_MAIN.Read(timeout = win_MAIN_timeout)
         print('ev_MAIN = ', ev_MAIN, '    vals_MAIN = ', vals_MAIN)
         if ev_MAIN is None or ev_MAIN == 'Exit':
             break
-        #--- ev_cfg_SOFT 'Window cfg_SOFT' -------------------------
+        #---------------------------------------------------------------
+        if ev_MAIN == 'AUTO'  :
+            win_MAIN_timeout, win_MAIN_mode =  300,   'AUTO'
+        #---------------------------------------------------------------
+        if ev_MAIN == 'Manual':
+            win_MAIN_timeout, win_MAIN_mode = 36000, 'Manual'
+        #--- ev_cfg_SOFT 'Window cfg_SOFT' -----------------------------
         event_menu_win_MAIN(ev_MAIN, vals_MAIN, _gl, win_MAIN)
 
         #--- open 'Window cfg_SOFT' ------------------------------------
         if ev_MAIN == 'update_cfg_SOFT' and not cfg_SOFT_active:
-            cfg_SOFT_active = True
-            win_cfg_SOFT = sg.Window('update_cfg_SOFT', location=(25,25)).Layout(lay_cfg_SOFT[:]).Finalize()
-        #--- check 'win_cfg_SOFT' --------------------------------------
-        if cfg_SOFT_active:
-            ev_cfg_SOFT, vals_cfg_SOFT = win_cfg_SOFT.Read(timeout=100)
-            #print('ev_cfg_SOFT = ', ev_cfg_SOFT, '    vals_cfg_SOFT = ', vals_cfg_SOFT)
-            if ev_cfg_SOFT is None or ev_cfg_SOFT == 'Close' or ev_cfg_SOFT == 'Exit':
-                cfg_SOFT_active  = False
-                win_cfg_SOFT.Close()
-            #--- ev_cfg_SOFT 'Window cfg_SOFT' -------------------------
-            event_menu_CFG_SOFT(ev_cfg_SOFT, vals_cfg_SOFT, _gl, win_cfg_SOFT)
+            win_MAIN.Hide()
+            _gl.unpack_cfg_soft()
+            win_cfg_SOFT = sg.Window('update_cfg_SOFT', location=(450,25)).Layout(lay_cfg_SOFT[:]).Finalize()
+            win_cfg_SOFT.FindElement('-titul-'    ).Update(_gl.titul)
+            win_cfg_SOFT.FindElement('-path_DATA-').Update(_gl.path_file_DATA)
+            win_cfg_SOFT.FindElement('-path_HIST-').Update(_gl.path_file_HIST)
+            win_cfg_SOFT.FindElement('-dt_start-' ).Update(_gl.dt_start)
+            win_cfg_SOFT.FindElement('-path_TXT-' ).Update(_gl.path_file_TXT)
+            while True:
+                ev_cfg_SOFT, vals_cfg_SOFT = win_cfg_SOFT.Read(timeout=100)
+                if ev_cfg_SOFT is None or ev_cfg_SOFT == 'Close' or ev_cfg_SOFT == 'Exit':
+                    win_MAIN.UnHide()
+                    win_cfg_SOFT.Close()
+                    break
+                #--- ev_cfg_SOFT 'Window cfg_SOFT' -------------------------
+                event_menu_CFG_SOFT(ev_cfg_SOFT, vals_cfg_SOFT, _gl, win_cfg_SOFT)
 
         #--- open 'Window cfg_PACK' ------------------------------------
         if ev_MAIN == 'update_cfg_PACK' and not cfg_PACK_active:
