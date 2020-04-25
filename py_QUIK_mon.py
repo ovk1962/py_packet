@@ -544,6 +544,35 @@ class Class_GL():
             return [1, ex]
         return [0, 'ok']
 
+    def calc_arr_pck_today(self):
+        print('=> _PACK calc_arr_pck_today ')
+        try:
+            r_rd = self.rd_term_FUT()
+            if r_rd[0] > 0:
+                return [2, 'Did not rd_term_FUT *hist_FUT* today!\n' + r_rd[1]]
+            dtt = datetime.strptime(self.account.dt, "%d.%m.%Y %H:%M:%S")
+            if dtt.minute == self.time_1_min:
+                return [3, 'Did not change time!']
+            self.time_1_min = dtt.minute
+            if self.rd_term_HST()[0] > 0:
+                return [4, 'Problem of rd_term_HST!\n' + rd_term_HST()[1]]
+            r_clc = self.clc_ASK_BID(self.arr_fut_t)
+            if r_clc[0] > 0:
+                return [5, 'Problem of clc_ASK_BID!\n' + r_clc[1]]
+            self.arr_pck_t = r_clc[1]
+            r_pck = self.clc_EMA(self.arr_pck_t, self.arr_pck_a[-1])
+            if r_pck[0] > 0:
+                return [6, 'Problem of clc_EMA!\n' + r_pck[1]]
+            self.arr_pck_t = r_pck[1][1:]
+            pck_t = self.pack_arr_pck(self.arr_pck_t, self.db_tod, 'hist_PACK')
+            if pck_t[0] > 0:
+                return [7, 'Problem of pack_arr_pck!\n' + pck_t[1]]
+            #print(_gl.arr_pck_t[-1])
+
+        except Exception as ex:
+            return [1, ex]
+        return [0, 'ok']
+
 #=======================================================================
 def event_menu_win_MAIN(ev, values, _gl, win):
     rq = [0,ev]
@@ -552,30 +581,12 @@ def event_menu_win_MAIN(ev, values, _gl, win):
     #-------------------------------------------------------------------
     if ev == '__TIMEOUT__':
         print('event_menu_win_MAIN ... __TIMEOUT__ ...')
-        #
-        r_rd = _gl.rd_term_FUT()
+        r_rd = _gl.calc_arr_pck_today()
         if r_rd[0] > 0:
-            win.FindElement('-inp_MAIN-').Update(r_rd[1]
-            +'\nPROFIT = ' + str(_gl.account.arr[_gl.account.prf]))
-            return
+            win.FindElement('-inp_MAIN-').Update(r_rd[1])
         else:
             win.FindElement('-inp_MAIN-').Update(_gl.account.dt
             +'\nPROFIT = ' + str(_gl.account.arr[_gl.account.prf]))
-        #
-        dtt = datetime.strptime(_gl.account.dt, "%d.%m.%Y %H:%M:%S")
-        if dtt.minute == _gl.time_1_min: return
-        _gl.time_1_min = dtt.minute
-        #
-        if _gl.rd_term_HST()[0] > 0: return
-        r_clc = _gl.clc_ASK_BID(_gl.arr_fut_t)
-        if r_clc[0] > 0: return
-        _gl.arr_pck_t = r_clc[1]
-        #
-        r_pck = _gl.clc_EMA(_gl.arr_pck_t, _gl.arr_pck_a[-1])
-        if r_pck[0] > 0: return
-        _gl.arr_pck_t = r_pck[1][1:]
-        pck_t = _gl.pack_arr_pck(_gl.arr_pck_t, _gl.db_tod, 'hist_PACK')
-        print(_gl.arr_pck_t[-1])
 
     #-------------------------------------------------------------------
     if ev == 'rd_term_FUT'  :
@@ -724,36 +735,16 @@ def event_menu_win_MAIN(ev, values, _gl, win):
     #-------------------------------------------------------------------
     if ev == 'calc_hst_PACK_t'  :
         if 'OK' == sg.PopupOKCancel('\nCalc table *hist_PACK*\n  from db_TODAY\n '):
-            r_clc = _gl.clc_ASK_BID(_gl.arr_fut_t)
+            r_clc = _gl.calc_arr_pck_today()
             if r_clc[0] == 0:
-                _gl.arr_pck_t = r_clc[1]
-                sg.PopupOK('\nclc_ASK_BID *hist_PACK* successfully !\n',
+                sg.PopupOK('\n calc_hst_PACK_t  successfully !\n',
                             background_color = 'LightGreen')
-                r_pck = _gl.clc_EMA(_gl.arr_pck_t, _gl.arr_pck_a[-1])
-                if r_pck[0] == 0:
-                    _gl.arr_pck_t = r_pck[1][1:]
-                    _gl.prn_arr('arr_pck_t', _gl.arr_pck_t)
-                    sg.PopupOK('\nclc_EMA *hist_PACK* successfully !\n',
-                                background_color = 'LightGreen')
-                    pck_t = _gl.pack_arr_pck(_gl.arr_pck_t, _gl.db_tod, 'hist_PACK')
-                    if pck_t[0] == 0:
-                        sg.PopupOK('\nUpdate *hist_PACK* successfully !\n',
-                                    background_color = 'LightGreen')
-                    else:
-                        sg.PopupError('\nDid not update *hist_PACK*!\n'
-                                        + pck_t[1] + '\n',
-                                        background_color = 'brown',
-                                        no_titlebar = True)
-                else:
-                    sg.PopupError('\nDid not CALC EMA!\n'
-                                    + r_pck[1] + '\n',
-                                    background_color = 'brown',
-                                    no_titlebar = True)
             else:
-                sg.PopupError('\nDid not CALC ASK_BID!\n'
+                sg.PopupError('\n calc_hst_PACK_t  problem !\n'
                                 + r_clc[1] + '\n',
                                 background_color = 'brown',
                                 no_titlebar = True)
+
     #-------------------------------------------------------------------
     print('rq = ', rq)
 #=======================================================================
