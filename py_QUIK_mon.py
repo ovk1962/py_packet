@@ -29,14 +29,15 @@ class Class_DB_SQLite():
         #print('stop READ')
         return [0, arr]
 
-    def update_tbl(self, nm_tbl, buf_arr, val = ' VALUES(?,?)'):
+    def update_tbl(self, nm_tbl, buf_arr, val = ' VALUES(?,?)', p_append = False):
         print('=> _SQLite update_tbl ', nm_tbl)
         try:
             conn = sqlite3.connect(self.path_db)
             with conn:
                 cur = conn.cursor()
                 #--- update table nm_tbl ---------------------------
-                cur.execute('DELETE FROM ' + nm_tbl)
+                if p_append == False:
+                    cur.execute('DELETE FROM ' + nm_tbl)
                 cur.executemany('INSERT INTO ' + nm_tbl + val, buf_arr)
                 conn.commit()
                 #--- read  table   ---------------------------------
@@ -522,6 +523,26 @@ class Class_GL():
             return [1, ex]
         return [0, pck_list]
 
+    def calc_arr_pck(self):
+        print('=> _PACK calc_arr_pck ')
+        try:
+            self.nul = [0 for i in range(len(self.nm))]
+            r_clc = self.clc_ASK_BID(self.arr_fut_a)
+            if r_clc[0] > 0:
+                return [2, 'Did not CALC ASK_BID *hist_PACK*!']
+            self.arr_pck_a = r_clc[1]
+            self.pack_arr_cfg()
+            r_pck = self.clc_EMA(self.arr_pck_a, Class_str_PCK())
+            if r_pck[0] > 0:
+                return [3, 'Did not CALC EMA *hist_PACK*!']
+            self.arr_pck_a = r_pck[1]
+            pck_a = self.pack_arr_pck(self.arr_pck_a, self.db_arc, 'hist_PACK')
+            if pck_a[0] > 0:
+                return [4, 'Did not update *hist_PACK*!']
+
+        except Exception as ex:
+            return [1, ex]
+        return [0, 'ok']
 
 #=======================================================================
 def event_menu_win_MAIN(ev, values, _gl, win):
@@ -534,9 +555,11 @@ def event_menu_win_MAIN(ev, values, _gl, win):
         #
         r_rd = _gl.rd_term_FUT()
         if r_rd[0] > 0:
-            win.FindElement('-inp_MAIN-').Update(r_rd[1])
+            win.FindElement('-inp_MAIN-').Update(r_rd[1]
+            +'\nPROFIT = ' + str(_gl.account.arr[_gl.account.prf]))
             return
-        win.FindElement('-inp_MAIN-').Update(_gl.account.dt
+        else:
+            win.FindElement('-inp_MAIN-').Update(_gl.account.dt
             +'\nPROFIT = ' + str(_gl.account.arr[_gl.account.prf]))
         #
         dtt = datetime.strptime(_gl.account.dt, "%d.%m.%Y %H:%M:%S")
@@ -566,7 +589,8 @@ def event_menu_win_MAIN(ev, values, _gl, win):
             else:
                 print(_gl.account)
                 for i in _gl.dt_fut:   print(i)
-                sg.PopupOK('\nRead *file_path_DATA* successfully !\n')
+                sg.PopupOK('\nRead *file_path_DATA* successfully !\n',
+                            background_color = 'LightGreen')
     #-------------------------------------------------------------------
     if ev == 'rd_term_HST'  :
         if 'OK' == sg.PopupOKCancel('\nRead file  *path_file_HIST*\n'):
@@ -578,7 +602,8 @@ def event_menu_win_MAIN(ev, values, _gl, win):
                                 no_titlebar = True)
             else:
                 rq = _gl.prn_arr('arr_fut_t', _gl.arr_fut_t)
-                sg.PopupOK('\nRead *path_file_HIST* successfully !\n')
+                sg.PopupOK('\nRead *path_file_HIST* successfully !\n',
+                            background_color = 'LightGreen')
     #-------------------------------------------------------------------
     if ev == 'rd_db_FUT'  :
         if 'OK' == sg.PopupOKCancel('\nRead DB table  *data_FUT*\n'):
@@ -593,7 +618,8 @@ def event_menu_win_MAIN(ev, values, _gl, win):
                 arr = _gl.unpack_data_in_file()
                 print(_gl.account)
                 for i in _gl.dt_fut:   print(i)
-                sg.PopupOK('\nRead table *data_FUT* successfully !\n')
+                sg.PopupOK('\nRead table *data_FUT* successfully !\n',
+                            background_color = 'LightGreen')
     #-------------------------------------------------------------------
     if ev == 'rd_hist_FUT_today'  :
         if 'OK' == sg.PopupOKCancel('\nRead table *hist_FUT*\n  from db_TODAY\n '):
@@ -608,7 +634,8 @@ def event_menu_win_MAIN(ev, values, _gl, win):
                 _gl.arr_fut_t = _gl.unpack_str_fut(rep[1])[1]
                 _gl.prn_arr('arr_fut_t', _gl.arr_fut_t)
 
-                sg.PopupOK('\nRead table *hist_FUT* successfully !\n')
+                sg.PopupOK('\nRead table *hist_FUT* successfully !\n',
+                            background_color = 'LightGreen')
     #-------------------------------------------------------------------
     if ev == 'rd_hist_PACK_today'  :
         if 'OK' == sg.PopupOKCancel('\nRead table *hist_PACK*\n  from db_TODAY\n '):
@@ -623,7 +650,8 @@ def event_menu_win_MAIN(ev, values, _gl, win):
                 _gl.arr_pck_t = _gl.unpack_str_pck(rep[1])[1]
                 _gl.prn_arr('arr_pck_t', _gl.arr_pck_t)
 
-                sg.PopupOK('\nRead table *hist_PACK* successfully !\n')
+                sg.PopupOK('\nRead table *hist_PACK* successfully !\n',
+                            background_color = 'LightGreen')
     #-------------------------------------------------------------------
     if ev == 'rd_hist_FUT_arch'  :
         if 'OK' == sg.PopupOKCancel('\nRead table *hist_FUT*\n  from db_ARCH\n '):
@@ -638,7 +666,8 @@ def event_menu_win_MAIN(ev, values, _gl, win):
                 _gl.arr_fut_a = _gl.unpack_str_fut(rep[1])[1]
                 _gl.prn_arr('arr_fut_a', _gl.arr_fut_a)
 
-                sg.PopupOK('\nRead table *hist_FUT* successfully !\n')
+                sg.PopupOK('\nRead table *hist_FUT* successfully !\n',
+                            background_color = 'LightGreen')
     #-------------------------------------------------------------------
     if ev == 'rd_hist_PACK_arch'  :
         if 'OK' == sg.PopupOKCancel('\nRead table *hist_PACK*\n  from db_ARCH\n '):
@@ -653,7 +682,8 @@ def event_menu_win_MAIN(ev, values, _gl, win):
                 _gl.arr_pck_a = _gl.unpack_str_pck(rep[1])[1]
                 _gl.prn_arr('arr_pck_a', _gl.arr_pck_a)
 
-                sg.PopupOK('\nRead table *hist_PACK* successfully !\n')
+                sg.PopupOK('\nRead table *hist_PACK* successfully !\n',
+                            background_color = 'LightGreen')
     #-------------------------------------------------------------------
     if ev == 'calc_hst_PACK_a'  :
         if 'OK' == sg.PopupOKCancel('\nCalc table *hist_PACK*\n  from db_ARCH\n '):
@@ -661,17 +691,21 @@ def event_menu_win_MAIN(ev, values, _gl, win):
             r_clc = _gl.clc_ASK_BID(_gl.arr_fut_a)
             if r_clc[0] == 0:
                 _gl.arr_pck_a = r_clc[1]
-                sg.PopupOK('\nclc_ASK_BID *hist_PACK* successfully !\n')
+                sg.PopupOK('\nclc_ASK_BID *hist_PACK* successfully !\n',
+                            background_color = 'LightGreen')
                 _gl.pack_arr_cfg()
-                sg.PopupOK('\nUpdate NUL *cfg_PACK* successfully !\n')
+                sg.PopupOK('\nUpdate NUL *cfg_PACK* successfully !\n',
+                            background_color = 'LightGreen')
                 r_pck = _gl.clc_EMA(_gl.arr_pck_a, Class_str_PCK())
                 if r_pck[0] == 0:
                     _gl.arr_pck_a = r_pck[1]
                     _gl.prn_arr('arr_pck_a', _gl.arr_pck_a)
-                    sg.PopupOK('\nclc_EMA *hist_PACK* successfully !\n')
+                    sg.PopupOK('\nclc_EMA *hist_PACK* successfully !\n',
+                                background_color = 'LightGreen')
                     pck_a = _gl.pack_arr_pck(_gl.arr_pck_a, _gl.db_arc, 'hist_PACK')
                     if pck_a[0] == 0:
-                        sg.PopupOK('\nUpdate *hist_PACK* successfully !\n')
+                        sg.PopupOK('\nUpdate *hist_PACK* successfully !\n',
+                                    background_color = 'LightGreen')
                     else:
                         sg.PopupError('\nDid not update *hist_PACK*!\n'
                                         + r_pck[1] + '\n',
@@ -693,15 +727,18 @@ def event_menu_win_MAIN(ev, values, _gl, win):
             r_clc = _gl.clc_ASK_BID(_gl.arr_fut_t)
             if r_clc[0] == 0:
                 _gl.arr_pck_t = r_clc[1]
-                sg.PopupOK('\nclc_ASK_BID *hist_PACK* successfully !\n')
+                sg.PopupOK('\nclc_ASK_BID *hist_PACK* successfully !\n',
+                            background_color = 'LightGreen')
                 r_pck = _gl.clc_EMA(_gl.arr_pck_t, _gl.arr_pck_a[-1])
                 if r_pck[0] == 0:
                     _gl.arr_pck_t = r_pck[1][1:]
                     _gl.prn_arr('arr_pck_t', _gl.arr_pck_t)
-                    sg.PopupOK('\nclc_EMA *hist_PACK* successfully !\n')
+                    sg.PopupOK('\nclc_EMA *hist_PACK* successfully !\n',
+                                background_color = 'LightGreen')
                     pck_t = _gl.pack_arr_pck(_gl.arr_pck_t, _gl.db_tod, 'hist_PACK')
                     if pck_t[0] == 0:
-                        sg.PopupOK('\nUpdate *hist_PACK* successfully !\n')
+                        sg.PopupOK('\nUpdate *hist_PACK* successfully !\n',
+                                    background_color = 'LightGreen')
                     else:
                         sg.PopupError('\nDid not update *hist_PACK*!\n'
                                         + pck_t[1] + '\n',
@@ -758,7 +795,8 @@ def event_menu_CFG_SOFT(_gl, win, ev = '-rd_cfg_SOFT-', values = [] ):
                                 background_color = 'brown',
                                 no_titlebar = True)
             else:
-                sg.PopupOK('\nUpdated *cfg_SOFT* successfully !\n')
+                sg.PopupOK('\nUpdated *cfg_SOFT* successfully !\n',
+                            background_color = 'LightGreen')
     #-------------------------------------------------------------------
     print('rq = ', rq)
 #=======================================================================
@@ -782,29 +820,119 @@ def event_menu_CFG_PACK(_gl, win, ev = '-rd_cfg_PACK-', val = {'-nm_pack-':0} ):
     #-------------------------------------------------------------------
     print('rq = ', rq)
 #=======================================================================
+def event_menu_append_TODAY(_gl, win, ev = '-rd_cfg_SOFT-', val = [] ):
+    rq = [0,ev]
+    #-------------------------------------------------------------------
+    os.system('cls')  # on windows
+    #-------------------------------------------------------------------
+    if ev == '__TIMEOUT__':
+        print('event_menu_append_TODAY ... __TIMEOUT__ ...')
+        print(val)
+    #-------------------------------------------------------------------
+    if ev == '-rd_cfg_SOFT-':
+        #win.FindElement('-path_DATA-').Update(_gl.path_file_DATA)
+        win.FindElement('-path_TXT-' ).Update(_gl.path_file_TXT)
+    #-------------------------------------------------------------------
+    if ev == 'save_in_FILE':
+        print('save_in_FILE ... save hist_FUT_today into file')
+        if 'OK' == sg.PopupOKCancel('\n   Save data from table *hist_FUT_today*   ' +
+                                      '\n      into file *path_file_TXT*   \n'):
+            hst = _gl.db_tod.read_tbl('hist_FUT')
+            if hst[0] > 0:
+                print('problem read_tbl *hist_FUT* ... ', hst[1])
+            else:
+                hst_fut_t = hst[1]
+                print('len(hist_FUT_today) = ', len(hst_fut_t))
+                if len(hst_fut_t) > 0:
+                    # change 2020-00-00 to  for name FILE
+                    print(_gl.path_file_TXT)
+                    buf_name = hst_fut_t[-1][1][6:10] + '-'
+                    buf_name += hst_fut_t[-1][1][3:5] + '-'
+                    buf_name += hst_fut_t[-1][1][0:2]
+                    buf_name = _gl.path_file_TXT.split('***')[0] + buf_name + _gl.path_file_TXT.split('***')[1]
+                    print(buf_name)
+                    with open(buf_name, 'w') as file_HIST:
+                        for item in hst_fut_t:
+                            file_HIST.write(item[1]+'\n')
+                else:
+                    print('hist_FUT_today IS empty')
+                    sg.PopupError('\n    Warning! \nTable *hist_FUT_today* IS empty!\n',
+                                    background_color = 'grey',
+                                    no_titlebar = True)
+    #-------------------------------------------------------------------
+    if ev == 'append_ARCH':
+        print('append_ARCH ... read from file hist_FUT & append into DB ARCH')
+        #--- read HIST file ---
+        buf_hist_arch, buf_str, frm = [], [], '%d.%m.%Y %H:%M:%S'
+        try:
+            with open(val['-append_TODAY_in_ARCH-'],"r") as fh:
+                buf_str = fh.read().splitlines()
+            #--- create list 'buf_hist' HIST 1 minute 10.00 ... 18.45
+            mn_pr, mn_cr, buf_hist = '', '00', []
+            for cnt, item in enumerate(buf_str):
+                h_m_s = item.split('|')[0].split(' ')[1].split(':')
+                mn_cr = h_m_s[1]
+                if int(h_m_s[0]) < 10: continue
+                if int(h_m_s[0]) > 18: break
+                if mn_pr != mn_cr:
+                    buf_hist.append(item)
+                mn_pr = mn_cr
+        except Exception as ex:
+            sg.PopupError('\n' + str(ex) + '\n', background_color = 'brown', no_titlebar = True)
+            return
+
+        #--- prepaire 'buf_hist' for update table 'hist_fut'
+        for item in buf_hist:
+            dtt_cr = datetime.strptime(item.split('|')[0], frm)
+            ind_sec = int(dtt_cr.replace(tzinfo=timezone.utc).timestamp())
+            buf_hist_arch.append([ind_sec, item])
+
+        rep = _gl.db_arc.update_tbl('hist_FUT', buf_hist_arch, val = ' VALUES(?,?)', p_append = True)
+        if rep[0] > 0:
+            print('problem update_tbl *hist_FUT* ARCH ... ', rep[1])
+            sg.PopupError('\n' + rep[1] + '\n',
+                            background_color = 'brown', no_titlebar = True)
+        else:
+            sg.PopupOK('\nOK, it was append data in table *hist_FUT* successfully !\n',
+                        background_color = 'LightGreen')
+    #-------------------------------------------------------------------
+
+#=======================================================================
 def main():
     _gl = Class_GL()
     _gl.unpack_cfg_soft()
     _gl.unpack_cfg_pack()
+    # calc & write in DB hist_PACK for ARCH
+    rep = _gl.db_arc.read_tbl('hist_FUT')
+    if rep[0] > 0:
+        sg.PopupError('\nDid not read table *hist_FUT*!\n'+ rep[1]
+                        + '\n', background_color = 'brown',
+                        no_titlebar = True)
+    else:
+        _gl.arr_fut_a = []
+        _gl.arr_fut_a = _gl.unpack_str_fut(rep[1])[1]
+        _gl.calc_arr_pck()
+    #
     _gl.rd_term_FUT()
     _gl.rd_term_HST()
-
+    #
     menu_def = [['MODE',
                     ['AUTO', 'Manual', '---',
                      'Exit',],],
                 ['DIAG',
                     ['update_cfg_SOFT',   'update_cfg_PACK',   '---',
+                     'append_TODAY_ARCH', '---',
                      'rd_term_FUT',       'rd_term_HST',       '---',
                      'rd_db_FUT',         '---',
                      'rd_hist_FUT_today', 'rd_hist_PACK_today','---',
                      'rd_hist_FUT_arch',  'rd_hist_PACK_arch', '---',
                      'calc_hst_PACK_a',   'calc_hst_PACK_t',   '---',],],
                 ]
-
+    #
     lay_MAIN = [ [sg.Menu(menu_def)                               ],
                 [sg.Multiline(' ', size=(45, 1), do_not_clear=True, key='-inp_MAIN-')     ],
                 [sg.Button('Exit')                                ]]
-
+    #
     lay_cfg_SOFT = [ #[sg.Text('update_cfg_SOFT')],
                 [sg.Text('titul',          size=(15, 1)), sg.Input('', do_not_clear=True, key='-titul-') ],
                 [sg.Text('path_file_DATA', size=(15, 1)), sg.Input('', do_not_clear=True, key='-path_DATA-'), sg.FileBrowse()],
@@ -814,7 +942,7 @@ def main():
                 [sg.Button('read cfg_SOFT',   key='-rd_cfg_SOFT-'),
                  sg.Button('update cfg_SOFT', key='-update_cfg_SOFT-'),
                  sg.Button('Close')],]
-
+    #
     lay_cfg_PACK = [ #[sg.Text('update_cfg_PACK')],
                 [sg.Slider(range=(0, len(_gl.nm)-1), orientation='h',    size=(23, 15),  default_value=0, key='-nm_pack-'),],
                 [sg.Text('nm',   size=(4, 1)), sg.Input(_gl.nm[0],       size=(45, 1), do_not_clear=True, key='-nm-') ],
@@ -823,16 +951,24 @@ def main():
                 [sg.Button('read cfg_PACK',   key='-rd_cfg_PACK-'),
                  sg.Button('update cfg_PACK', key='-update_cfg_PACK-'),
                  sg.Button('Close')],]
-
+    #
+    lay_append_TODAY = [
+                [sg.Text('path_file_TXT',         size=(20, 1)), sg.Text('', size=(35, 1), key='-path_TXT-'), ],
+                [sg.Button('save_in_FILE')],
+                [sg.Text(45*' ', size=(45, 1))],
+                [sg.Text('append_TODAY_in_ARCH',  size=(20, 1)), sg.Input('press FileBrowse', do_not_clear=True, key='-append_TODAY_in_ARCH-'),  sg.FileBrowse()],
+                [sg.Button('append_ARCH'),  sg.Button('Close')],]
+    #
     #sg.theme('DarkTeal12')   # Add a touch of color
     win_MAIN = sg.Window(_gl.titul, grab_anywhere=True).Layout(lay_MAIN).Finalize()
     win_MAIN_mode, win_MAIN_timeout = 'Manual', 36000
-
+    #
     while True:
         #=== check 'Window MAIN' =======================================
         ev_MAIN, vals_MAIN = win_MAIN.Read(timeout = win_MAIN_timeout)
         print('ev_MAIN = ', ev_MAIN, '    vals_MAIN = ', vals_MAIN)
-        if ev_MAIN is None or ev_MAIN == 'Exit':
+        if ev_MAIN in [None, 'Close', 'Exit']:
+            win_MAIN.Close()
             break
         #---------------------------------------------------------------
         if ev_MAIN == 'AUTO'  :
@@ -844,35 +980,53 @@ def main():
         event_menu_win_MAIN(ev_MAIN, vals_MAIN, _gl, win_MAIN)
 
         #=== open 'Window cfg_SOFT' ====================================
-        if ev_MAIN == 'update_cfg_SOFT':      # and not cfg_SOFT_active:
+        if ev_MAIN == 'update_cfg_SOFT':
             win_MAIN.Hide()
             _gl.unpack_cfg_soft()
-            win_cfg_SOFT = sg.Window('update_cfg_SOFT', location=(450,25)).Layout(lay_cfg_SOFT[:]).Finalize()
+            win_cfg_SOFT = sg.Window('update_cfg_SOFT',
+                    location=(450,25)).Layout(lay_cfg_SOFT[:]).Finalize()
             event_menu_CFG_SOFT(_gl, win_cfg_SOFT)
             while True:
                 ev_cfg_SOFT, vals_cfg_SOFT = win_cfg_SOFT.Read(timeout=100)
-                if ev_cfg_SOFT is None or ev_cfg_SOFT == 'Close' or ev_cfg_SOFT == 'Exit':
+                #if ev_cfg_SOFT is None or ev_cfg_SOFT == 'Close' or ev_cfg_SOFT == 'Exit':
+                if ev_cfg_SOFT in [None, 'Close', 'Exit']:
                     win_MAIN.UnHide()
                     win_cfg_SOFT.Close()
                     break
                 #--- ev_cfg_SOFT 'Window cfg_SOFT' -------------------------
                 event_menu_CFG_SOFT(_gl, win_cfg_SOFT, ev_cfg_SOFT, vals_cfg_SOFT)
-
+        #
         #=== open 'Window cfg_PACK' ====================================
-        if ev_MAIN == 'update_cfg_PACK':      # and not cfg_PACK_active:
+        if ev_MAIN == 'update_cfg_PACK':
             win_MAIN.Hide()
             _gl.unpack_cfg_pack()
-            win_cfg_PACK = sg.Window('update_cfg_PACK', location=(150,200)).Layout(lay_cfg_PACK[:]).Finalize()
+            win_cfg_PACK = sg.Window('update_cfg_PACK',
+                    location=(150,200)).Layout(lay_cfg_PACK[:]).Finalize()
             event_menu_CFG_PACK(_gl, win_cfg_PACK)
             while True:
                 ev_cfg_PACK, vals_cfg_PACK = win_cfg_PACK.Read(timeout=100)
-                if ev_cfg_PACK is None or ev_cfg_PACK == 'Close' or ev_cfg_PACK == 'Exit':
+                if ev_cfg_PACK in [None, 'Close', 'Exit']:
                     win_MAIN.UnHide()
                     win_cfg_PACK.Close()
                     break
                 #--- ev_cfg_PACK 'Window win_cfg_PACK' -------------------------
                 event_menu_CFG_PACK(_gl, win_cfg_PACK, ev_cfg_PACK, vals_cfg_PACK)
-
+        #
+        #=== open 'Window append_TODAY' ================================
+        if ev_MAIN == 'append_TODAY_ARCH':
+            win_MAIN.Hide()
+            win_append_TODAY_ARCH = sg.Window('append TODAY in ARCH',
+                    location=(250,350)).Layout(lay_append_TODAY[:]).Finalize()
+            event_menu_append_TODAY(_gl, win_append_TODAY_ARCH)
+            while True:
+                ev_append_TODAY, vals_append_TODAY = win_append_TODAY_ARCH.Read(timeout=1000)
+                if ev_append_TODAY in [None, 'Close', 'Exit']:
+                    win_MAIN.UnHide()
+                    win_append_TODAY_ARCH.Close()
+                    break
+                #--- ev_cfg_PACK 'Window win_cfg_PACK' -------------------------
+                event_menu_append_TODAY(_gl, win_append_TODAY_ARCH, ev_append_TODAY, vals_append_TODAY)
+        #
     return 0
 
 if __name__ == '__main__':
