@@ -583,7 +583,11 @@ def event_menu_win_MAIN(ev, values, _gl, win):
         print('event_menu_win_MAIN ... __TIMEOUT__ ...')
         r_rd = _gl.calc_arr_pck_today()
         if r_rd[0] > 0:
-            win.FindElement('-inp_MAIN-').Update(r_rd[1])
+            if r_rd[0] == 3 :
+                win.FindElement('-inp_MAIN-').Update(_gl.account.dt
+                +'\nPROFIT = ' + str(_gl.account.arr[_gl.account.prf]))
+            else:
+                win.FindElement('-inp_MAIN-').Update(r_rd[1])
         else:
             win.FindElement('-inp_MAIN-').Update(_gl.account.dt
             +'\nPROFIT = ' + str(_gl.account.arr[_gl.account.prf]))
