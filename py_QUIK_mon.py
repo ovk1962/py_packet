@@ -135,14 +135,9 @@ class Class_GL():
         self.dt_fut  = []               # list of Class_FUT()
         self.account = Class_ACCOUNT()  # obj Class_ACCOUNT()
         #
-        #self.hst_fut_t = []
         self.arr_fut_t = []
-        #self.hst_fut_a = []
         self.arr_fut_a = []
-        #
-        #self.hst_pck_t = []
         self.arr_pck_t = []
-        #self.hst_pck_a = []
         self.arr_pck_a = []
         #
         self.time_1_min = 0
@@ -172,7 +167,7 @@ class Class_GL():
         else:
             for item in arr: print(item, '\n')
 
-    def prn_cfg(self):
+    def prn_cfg_soft(self):
         frm = '{: <18}{: <55}'
         print(frm.format('titul',          self.titul))
         print(frm.format('dt_start',       self.dt_start))
@@ -180,6 +175,15 @@ class Class_GL():
         print(frm.format('path_file_DATA', self.path_file_DATA))
         print(frm.format('path_file_HIST', self.path_file_HIST))
         print(frm.format('path_file_TXT',  self.path_file_TXT))
+
+    def prn_cfg_pack(self):
+        frm = '{: ^5}{: ^15}{}{}{}'
+        print(frm.format('nm','nul','ema[]','        ','koef[]'))
+        for i, item in enumerate(self.nm):
+            print(frm.format(self.nm[i],
+                        str(self.nul[i]),
+                            self.ema[i], '   ',
+                            self.koef[i]))
 
     def unpack_cfg_soft(self):
         print('=> _GL unpack_cfg_soft')
@@ -195,7 +199,7 @@ class Class_GL():
             frm = '%Y-%m-%d %H:%M:%S'
             self.dt_start_sec = \
                 int(datetime.strptime(self.dt_start, frm).replace(tzinfo=timezone.utc).timestamp())
-            self.prn_cfg()
+            self.prn_cfg_soft()
         except Exception as ex:
             return [1, ex]
         return [0, cfg]
@@ -219,15 +223,7 @@ class Class_GL():
                 self.koef.append(arr_koef)       #  [[0, 2, 'SR'],[9, -20, 'MX'], ...
                 self.nul.append(int(item[2]))    #  [0]
                 self.ema.append([int(e) for e in item[3].split(':')]) # [1111, 15]
-            #-----------------------------------------------------------
-            frm = '{: ^5}{: ^15}{}{}{}'
-            print(frm.format('nm','nul','ema[]','        ','koef[]'))
-            for i, item in enumerate(self.nm):
-                print(frm.format(self.nm[i],
-                            str(self.nul[i]),
-                                self.ema[i], '   ',
-                                self.koef[i]))
-            #-----------------------------------------------------------
+
         except Exception as ex:
             return [1, ex]
 
@@ -895,22 +891,37 @@ def event_menu_append_TODAY(_gl, win, ev = '-rd_cfg_SOFT-', val = [] ):
 #=======================================================================
 def main():
     _gl = Class_GL()
-    _gl.unpack_cfg_soft()
-    _gl.unpack_cfg_pack()
-    # calc & write in DB hist_PACK for ARCH
-    rep = _gl.db_arc.read_tbl('hist_FUT')
-    if rep[0] > 0:
-        sg.PopupError('\nDid not read table *hist_FUT*!\n'+ rep[1]
-                        + '\n', background_color = 'brown',
-                        no_titlebar = True)
-    else:
-        _gl.arr_fut_a = []
-        _gl.arr_fut_a = _gl.unpack_str_fut(rep[1])[1]
-        _gl.calc_arr_pck()
-    #
-    _gl.rd_term_FUT()
-    _gl.rd_term_HST()
-    #
+    while True:
+        rep = _gl.unpack_cfg_soft()
+        if rep[0] > 0:
+            sg.PopupError('\n Could not read table *cfg_soft*! \n'+ rep[1]
+            + '\n', background_color = 'brown',no_titlebar = True)
+            return 0
+        rep = _gl.unpack_cfg_pack()
+        if rep[0] > 0:
+            sg.PopupError('\n Could not read table *cfg_PACK*! \n'+ rep[1]
+            + '\n', background_color = 'brown',no_titlebar = True)
+            return 0
+        rep = _gl.db_arc.read_tbl('hist_FUT')
+        if rep[0] > 0:
+            sg.PopupError('\n Could not read table *hist_FUT* from ARCH! \n'
+            + rep[1] + '\n', background_color = 'brown',no_titlebar = True)
+            return 0
+        req = _gl.unpack_str_fut(rep[1])
+        if req[0] > 0:
+            sg.PopupError('\n Did not unpack table *hist_FUT* from ARCH! \n'
+            + req[1] + '\n', background_color = 'brown',no_titlebar = True)
+            return 0
+        _gl.arr_fut_a = req[1]
+        req = _gl.calc_arr_pck()
+        if req[0] > 0:
+            sg.PopupError('\n Did not calc_arr_pck from ARCH! \n'
+            + req[1] + '\n', background_color = 'brown',no_titlebar = True)
+            return 0
+        _gl.rd_term_FUT()
+        _gl.rd_term_HST()
+        break
+
     menu_def = [['MODE',
                     ['AUTO', 'Manual', '---',
                      'Exit',],],
