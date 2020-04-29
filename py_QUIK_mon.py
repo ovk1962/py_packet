@@ -744,8 +744,31 @@ def event_menu_win_MAIN(ev, values, _gl, win):
                                 + r_clc[1] + '\n',
                                 background_color = 'brown',
                                 no_titlebar = True)
-
     #-------------------------------------------------------------------
+    if ev == 'clear_FUT_PACK_today'  :
+        if 'OK' == sg.PopupOKCancel('\n Clear tables *hist_FUT&PACK*\n  from db_TODAY\n OK\n?'):
+            rep = _gl.db_tod.update_tbl('hist_PACK', [])
+            if rep[0] == 0:
+                sg.PopupOK('\n Clear table *hist_PACK* successfully !\n',
+                            background_color = 'LightGreen')
+            else:
+                sg.PopupError('\n  Could not clear table *hist_PACK* !\n'
+                                + rep[1] + '\n',
+                                background_color = 'brown',
+                                no_titlebar = True)
+            rep = _gl.db_tod.update_tbl('hist_FUT', [])
+            if rep[0] == 0:
+                sg.PopupOK('\n Clear table *hist_FUT* successfully !\n',
+                            background_color = 'LightGreen')
+            else:
+                sg.PopupError('\n  Could not clear table *hist_FUT* !\n'
+                                + rep[1] + '\n',
+                                background_color = 'brown',
+                                no_titlebar = True)
+    #-------------------------------------------------------------------
+
+
+
     print('rq = ', rq)
 #=======================================================================
 def event_menu_CFG_SOFT(_gl, win, ev = '-rd_cfg_SOFT-', values = [] ):
@@ -798,13 +821,15 @@ def event_menu_CFG_PACK(_gl, win, ev = '-rd_cfg_PACK-', val = {'-nm_pack-':0} ):
     #-------------------------------------------------------------------
     if ev == '__TIMEOUT__':
         print('event_menu_CFG_PACK ... __TIMEOUT__ ...')
+        _gl.prn_cfg_pack()
         print(val)
     #-------------------------------------------------------------------
     if ev == '-rd_cfg_PACK-':
-        print('-nm_pack- = ', int(val['-nm_pack-']) )
-        win.FindElement('-nm-').Update(_gl.nm[int(val['-nm_pack-'])])
-        win.FindElement('-koef-').Update(_gl.koef[int(val['-nm_pack-'])])
-        win.FindElement('-ema-').Update(_gl.ema[int(val['-nm_pack-'])])
+        print('-rd_cfg_PACK-')
+        # print('-nm_pack- = ', int(val['-nm_pack-']) )
+        # win.FindElement('-nm-').Update(_gl.nm[int(val['-nm_pack-'])])
+        # win.FindElement('-koef-').Update(_gl.koef[int(val['-nm_pack-'])])
+        # win.FindElement('-ema-').Update(_gl.ema[int(val['-nm_pack-'])])
     #-------------------------------------------------------------------
     if ev == '-update_cfg_PACK-':
         print('-update_cfg_PACK-')
@@ -926,13 +951,13 @@ def main():
                     ['AUTO', 'Manual', '---',
                      'Exit',],],
                 ['DIAG',
-                    ['update_cfg_SOFT',   'update_cfg_PACK',   '---',
-                     'append_TODAY_ARCH', '---',
-                     'rd_term_FUT',       'rd_term_HST',       '---',
+                    ['update_cfg_SOFT',   'update_cfg_PACK',     '---',
+                     'append_TODAY_ARCH', 'clear_FUT_PACK_today','---',
+                     'rd_term_FUT',       'rd_term_HST',         '---',
                      'rd_db_FUT',         '---',
-                     'rd_hist_FUT_today', 'rd_hist_PACK_today','---',
-                     'rd_hist_FUT_arch',  'rd_hist_PACK_arch', '---',
-                     'calc_hst_PACK_a',   'calc_hst_PACK_t',   '---',],],
+                     'rd_hist_FUT_today', 'rd_hist_PACK_today',  '---',
+                     'rd_hist_FUT_arch',  'rd_hist_PACK_arch',   '---',
+                     'calc_hst_PACK_a',   'calc_hst_PACK_t',     '---',],],
                 ]
     #
     lay_MAIN = [ [sg.Menu(menu_def)                               ],
@@ -949,11 +974,19 @@ def main():
                  sg.Button('update cfg_SOFT', key='-update_cfg_SOFT-'),
                  sg.Button('Close')],]
     #
-    lay_cfg_PACK = [ #[sg.Text('update_cfg_PACK')],
-                [sg.Slider(range=(0, len(_gl.nm)-1), orientation='h',    size=(23, 15),  default_value=0, key='-nm_pack-'),],
-                [sg.Text('nm',   size=(4, 1)), sg.Input(_gl.nm[0],       size=(45, 1), do_not_clear=True, key='-nm-') ],
-                [sg.Text('koef', size=(4, 1)), sg.Multiline(_gl.koef[0], size=(45, 1), do_not_clear=True, key='-koef-') ],
-                [sg.Text('ema',  size=(4, 1)), sg.Input(_gl.ema[0],      size=(45, 1), do_not_clear=True, key='-ema-') ],
+    header_list = [' nm ','             koef            ',' ema ',' nul ']
+    MAX_ROWS = len(_gl.nm)
+    MAX_COL  = len(header_list)
+    matrix = [[nm, kf, em, str(nl)] for nm, kf, em, nl in zip(_gl.nm, _gl.koef, _gl.ema, _gl.nul)]
+    lay_cfg_PACK = [[sg.Table(values= matrix,
+                            headings=header_list,
+                            #max_col_width=5,
+                            auto_size_columns=True,
+                            key='_table_',
+                            justification='center',
+                            alternating_row_color='lightblue',
+                            #pnum_rows=min(len(matrix), 25)
+                            )],
                 [sg.Button('read cfg_PACK',   key='-rd_cfg_PACK-'),
                  sg.Button('update cfg_PACK', key='-update_cfg_PACK-'),
                  sg.Button('Close')],]
@@ -1010,7 +1043,7 @@ def main():
                     location=(150,200)).Layout(lay_cfg_PACK[:]).Finalize()
             event_menu_CFG_PACK(_gl, win_cfg_PACK)
             while True:
-                ev_cfg_PACK, vals_cfg_PACK = win_cfg_PACK.Read(timeout=100)
+                ev_cfg_PACK, vals_cfg_PACK = win_cfg_PACK.Read(timeout=1000)
                 if ev_cfg_PACK in [None, 'Close', 'Exit']:
                     win_MAIN.UnHide()
                     win_cfg_PACK.Close()
