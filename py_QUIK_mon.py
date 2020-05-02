@@ -87,6 +87,15 @@ class Class_str_PCK():
     def __str__(self):
         return 'ind_s = {}, dt = {}{} arr={}'.format(self.ind_s, self.dt, '\n', str(self.arr))
 #=======================================================================
+class Class_cfg_PCK():
+    nm, koef, nul, ema = range(4)
+    def __init__(self):
+        self.arr  = []
+    def __retr__(self):
+        return 'arr={}'.format(str(self.arr))
+    def __str__(self):
+        return 'arr={}'.format(str(self.arr))
+#=======================================================================
 class Class_ACCOUNT():
     bal, prf, go, dep = range(4)
     def __init__(self):
@@ -120,10 +129,12 @@ class Class_GL():
         self.dt_start_sec   = 0     # 2017-01-01 00:00:00
         self.path_file_TXT  = ''    # c:\\hist_log_ALOR.txt
         # cfg_pack
-        self.nm   = []  # list NM   of packets
-        self.koef = []  # list KOEF of packets
-        self.nul  = []  # list NUL  of packets
-        self.ema  = []  # list EMA  of packets
+        #self.nm   = []  # list NM   of packets
+        #self.koef = []  # list KOEF of packets
+        #self.nul  = []  # list NUL  of packets
+        #self.ema  = []  # list EMA  of packets
+        #
+        self.cfg_pac = Class_cfg_PCK()
         #
         self.dt_start_sec = 0
         #
@@ -177,13 +188,10 @@ class Class_GL():
         print(frm.format('path_file_TXT',  self.path_file_TXT))
 
     def prn_cfg_pack(self):
-        frm = '{: ^5}{: ^15}{}{}{}'
-        print(frm.format('nm','nul','ema[]','        ','koef[]'))
-        for i, item in enumerate(self.nm):
-            print(frm.format(self.nm[i],
-                        str(self.nul[i]),
-                            self.ema[i], '   ',
-                            self.koef[i]))
+        frm = '{:-^5}{:-^35}{:-^5}{:-^10}'
+        print(frm.format('nm','koef[]','nul','ema[]','        '))
+        for item in self.cfg_pac.arr:
+            print(item)
 
     def unpack_cfg_soft(self):
         print('=> _GL unpack_cfg_soft')
@@ -203,6 +211,51 @@ class Class_GL():
         except Exception as ex:
             return [1, ex]
         return [0, cfg]
+
+    def read_cfg_pack(self):        #  instead  *unpack_cfg_pack*
+        print('=> _GL read_cfg_pack ')
+        try:
+            cfg = self.db_tod.read_tbl('cfg_PACK')
+            if cfg[0] > 0: return cfg
+            c = self.cfg_pac
+            c.arr = []
+            for item in cfg[1]:
+                arr_k    = item[1].split(',')
+                arr_koef = []
+                for item_k in arr_k:             # '0:2:SR' => [0, 32, 'SR']
+                    arr_koef.append([int(f) if f.replace('-','').isdigit() else f for f in item_k.split(':')])
+                #buf = [item[0], arr_koef, int(item[2]), [int(e) for e in item[3].split(':')]]
+                #nm, koef, nul, ema = range(4)
+                buf = [item[c.nm], arr_koef, int(item[c.nul]), [int(e) for e in item[c.ema].split(':')]]
+                c.arr.append(buf)
+            #for item in c.arr:
+            #    print(item)
+
+        except Exception as ex:
+            return [1, ex]
+
+        return [0, cfg]
+
+    def write_cfg_pack(self):        #  instead  *pack_arr_cfg*
+        print('=> _GL write_cfg_pack ')
+        try:
+            cfg_list = []
+            c = self.cfg_pac
+            #  ['pack1', [[0, 3, 'SR'], [1, 2, 'GZ']], 7517, [1111, 150]]
+            #  ['pack1', '0:3:SR,1:2:GZ', 7517, '1111:150']
+            for j in range(len(c.arr)):
+                str_nm = c.arr[j][c.nm]
+                str_koef = ''
+                for ss in c.arr[j][c.koef]:
+                    str_koef += ':'.join((str(s) for s in ss)) + ','
+                int_nul = c.arr[j][c.nul]
+                str_ema = ':'.join((str(s) for s in c.arr[j][c.ema]))
+                cfg_list.append([str_nm, str_koef[:-1], int_nul, str_ema])
+
+        except Exception as ex:
+            return [1, ex]
+        return [0, cfg_list]
+
 
     def unpack_cfg_pack(self):
         print('=> _GL unpack_cfg_pack ')
@@ -425,19 +478,23 @@ class Class_GL():
         print('=> _PACK clc_ASK_BID ', len(arr_FUT))
         try:
             #print('point 0')
-            b_null = True if (self.nul[0] == 0) else False
+            c = self.cfg_pac
+            b_null = True if (c.arr[0][c.nul] == 0) else False
 
             ''' init  table ARCHIV_PACK  --------------------'''
             arr_pk  = []  # list of Class_str_PCK()
             fAsk, fBid = range(2)
-            #print('point 1')
+            nm_pcks = len(c.arr)
+            #print('point 1  ', nm_pcks)
             for idx, item in enumerate(arr_FUT): # change STRINGs
                 if idx % 1000 == 0:  print(idx, end='\r')
                 arr_bb = Class_str_PCK()
                 arr_bb.ind_s, arr_bb.dt  = item.ind_s, item.dt
-                for p, ptem in enumerate(self.nm):    # change PACKETs
+                for p in range(nm_pcks):
+                #for p, ptem in enumerate(self.nm):    # change PACKETs
                     ask_p, bid_p, arr_pp = 0, 0, [0, 0, 0, 0, 0]
-                    for jdx, jtem in enumerate(self.koef[p]): # calc PACK
+                    #for jdx, jtem in enumerate(self.koef[p]): # calc PACK
+                    for jdx, jtem in enumerate(c.arr[p][c.koef]): # calc PACK
                         i_koef, k_koef = jtem[0], jtem[1]
                         if k_koef > 0 :
                             ask_p +=  k_koef * item.arr[i_koef][fAsk]
@@ -448,10 +505,12 @@ class Class_GL():
 
                     if idx == 0 and b_null:
                         arr_pp = [0, 0, 0, 0, 0]
-                        self.nul[p] = int((ask_p + bid_p)/2)
+                        #self.nul[p] = int((ask_p + bid_p)/2)
+                        c.arr[p][c.nul]= int((ask_p + bid_p)/2)
                         arr_bb.arr.append(arr_pp)
                         continue
-                    arr_pp = [int(ask_p - self.nul[p]), int(bid_p - self.nul[p]), 0, 0, 0]
+                    #arr_pp = [int(ask_p - self.nul[p]), int(bid_p - self.nul[p]), 0, 0, 0]
+                    arr_pp = [int(ask_p - c.arr[p][c.nul]), int(bid_p - c.arr[p][c.nul]), 0, 0, 0]
                     arr_bb.arr.append(arr_pp)
                 arr_pk.append(arr_bb)
 
@@ -463,12 +522,15 @@ class Class_GL():
     def clc_EMA(self, arr_pk, last_pk):
         print('=> _PACK clc_EMA ', len(arr_pk))
         b_null = True if (last_pk.ind_s == 0) else False
+        c = self.cfg_pac
         try:
-
+            nm_pcks = len(c.arr)
             koef_EMA, k_EMA_rnd = [], []
-            for kdx, ktem in enumerate(self.nm):
-                koef_EMA.append(round(2/(1+int(self.ema[kdx][0])),5))
-                k_EMA_rnd.append(int(self.ema[kdx][1]))
+            for kdx in range(nm_pcks):
+            #for kdx, ktem in enumerate(self.nm):
+                k_ema = c.arr[kdx][c.ema]
+                koef_EMA.append(round(2/(1+int(k_ema[0])),5))
+                k_EMA_rnd.append(int(k_ema[1]))
 
             pAsk, pBid, EMAf, EMAf_r, cnt_EMAf_r = range(5)
             for idx, item in enumerate(arr_pk):
@@ -522,12 +584,16 @@ class Class_GL():
     def calc_arr_pck(self):
         print('=> _PACK calc_arr_pck ')
         try:
-            self.nul = [0 for i in range(len(self.nm))]
+            c = self.cfg_pac
+            #c.arr[]nul = [0 for i in range(len(c.arr))]
+            for i in range(len(c.arr)):
+                c.arr[i][c.nul] = 0
             r_clc = self.clc_ASK_BID(self.arr_fut_a)
             if r_clc[0] > 0:
                 return [2, 'Did not CALC ASK_BID *hist_PACK*!']
             self.arr_pck_a = r_clc[1]
-            self.pack_arr_cfg()
+            #self.pack_arr_cfg()
+            self.write_cfg_pack()
             r_pck = self.clc_EMA(self.arr_pck_a, Class_str_PCK())
             if r_pck[0] > 0:
                 return [3, 'Did not CALC EMA *hist_PACK*!']
@@ -579,6 +645,7 @@ def event_menu_win_MAIN(ev, values, _gl, win):
         print('event_menu_win_MAIN ... __TIMEOUT__ ...')
         r_rd = _gl.calc_arr_pck_today()
         if r_rd[0] > 0:
+            #print('r_rd = ', r_rd)
             if r_rd[0] == 3 :
                 win.FindElement('-inp_MAIN-').Update(_gl.account.dt
                 +'\nPROFIT = ' + str(_gl.account.arr[_gl.account.prf]))
@@ -698,13 +765,18 @@ def event_menu_win_MAIN(ev, values, _gl, win):
     #-------------------------------------------------------------------
     if ev == 'calc_hst_PACK_a'  :
         if 'OK' == sg.PopupOKCancel('\nCalc table *hist_PACK*\n  from db_ARCH\n '):
-            _gl.nul = [0 for i in range(len(_gl.nm))]
+            #_gl.nul = [0 for i in range(len(_gl.cfg_pac.arr))]
+            c = _gl.cfg_pac
+            for i in range(len(c.arr)):
+                c.arr[i][c.nul] = 0
+            #_gl.nul = [0 for i in range(len(_gl.nm))]
             r_clc = _gl.clc_ASK_BID(_gl.arr_fut_a)
             if r_clc[0] == 0:
                 _gl.arr_pck_a = r_clc[1]
                 sg.PopupOK('\nclc_ASK_BID *hist_PACK* successfully !\n',
                             background_color = 'LightGreen')
-                _gl.pack_arr_cfg()
+                #_gl.pack_arr_cfg()
+                _gl.write_cfg_pack()
                 sg.PopupOK('\nUpdate NUL *cfg_PACK* successfully !\n',
                             background_color = 'LightGreen')
                 r_pck = _gl.clc_EMA(_gl.arr_pck_a, Class_str_PCK())
@@ -728,6 +800,7 @@ def event_menu_win_MAIN(ev, values, _gl, win):
                                     background_color = 'brown',
                                     no_titlebar = True)
             else:
+                print(r_clc)
                 sg.PopupError('\nDid not CALC ASK_BID!\n'
                                 + r_clc[1] + '\n',
                                 background_color = 'brown',
@@ -826,6 +899,7 @@ def event_menu_CFG_PACK(_gl, win, ev = '-rd_cfg_PACK-', val = {'-nm_pack-':0} ):
     #-------------------------------------------------------------------
     if ev == '-rd_cfg_PACK-':
         print('-rd_cfg_PACK-')
+        _gl.read_cfg_pack()
         # print('-nm_pack- = ', int(val['-nm_pack-']) )
         # win.FindElement('-nm-').Update(_gl.nm[int(val['-nm_pack-'])])
         # win.FindElement('-koef-').Update(_gl.koef[int(val['-nm_pack-'])])
@@ -922,11 +996,18 @@ def main():
             sg.PopupError('\n Could not read table *cfg_soft*! \n'+ rep[1]
             + '\n', background_color = 'brown',no_titlebar = True)
             return 0
-        rep = _gl.unpack_cfg_pack()
+        # rep = _gl.unpack_cfg_pack()
+        # if rep[0] > 0:
+            # sg.PopupError('\n Could not read table *cfg_PACK*! \n'+ rep[1]
+            # + '\n', background_color = 'brown',no_titlebar = True)
+            # return 0
+
+        rep = _gl.read_cfg_pack()
         if rep[0] > 0:
-            sg.PopupError('\n Could not read table *cfg_PACK*! \n'+ rep[1]
+            sg.PopupError('\n Could not read_cfg_pack table *cfg_PACK*! \n'+ rep[1]
             + '\n', background_color = 'brown',no_titlebar = True)
             return 0
+
         rep = _gl.db_arc.read_tbl('hist_FUT')
         if rep[0] > 0:
             sg.PopupError('\n Could not read table *hist_FUT* from ARCH! \n'
@@ -974,10 +1055,13 @@ def main():
                  sg.Button('update cfg_SOFT', key='-update_cfg_SOFT-'),
                  sg.Button('Close')],]
     #
-    header_list = [' nm ','             koef            ',' ema ',' nul ']
-    MAX_ROWS = len(_gl.nm)
+    header_list = [' nm ','             koef            ',' nul ',' ema ']
+    matrix = [item for item in _gl.cfg_pac.arr]
+    MAX_ROWS = len(matrix)
+    print('MAX_ROWS = ', MAX_ROWS)
+    print('len_gl.cfg_pac.arr = ', len(_gl.cfg_pac.arr))
     MAX_COL  = len(header_list)
-    matrix = [[nm, kf, em, str(nl)] for nm, kf, em, nl in zip(_gl.nm, _gl.koef, _gl.ema, _gl.nul)]
+    #matrix = [[nm, kf, em, str(nl)] for nm, kf, em, nl in zip(_gl.nm, _gl.koef, _gl.ema, _gl.nul)]
     lay_cfg_PACK = [[sg.Table(values= matrix,
                             headings=header_list,
                             #max_col_width=5,
@@ -985,7 +1069,7 @@ def main():
                             key='_table_',
                             justification='center',
                             alternating_row_color='lightblue',
-                            #pnum_rows=min(len(matrix), 25)
+                            num_rows=min(len(matrix), 30)
                             )],
                 [sg.Button('read cfg_PACK',   key='-rd_cfg_PACK-'),
                  sg.Button('update cfg_PACK', key='-update_cfg_PACK-'),
@@ -1000,7 +1084,7 @@ def main():
     #
     #sg.theme('DarkTeal12')   # Add a touch of color
     win_MAIN = sg.Window(_gl.titul, grab_anywhere=True).Layout(lay_MAIN).Finalize()
-    win_MAIN_mode, win_MAIN_timeout = 'Manual', 36000
+    win_MAIN_mode, win_MAIN_timeout = 'AUTO', 3000
     #
     while True:
         #=== check 'Window MAIN' =======================================
@@ -1038,7 +1122,8 @@ def main():
         #=== open 'Window cfg_PACK' ====================================
         if ev_MAIN == 'update_cfg_PACK':
             win_MAIN.Hide()
-            _gl.unpack_cfg_pack()
+            #_gl.unpack_cfg_pack()
+            _gl.read_cfg_pack()
             win_cfg_PACK = sg.Window('update_cfg_PACK',
                     location=(150,200)).Layout(lay_cfg_PACK[:]).Finalize()
             event_menu_CFG_PACK(_gl, win_cfg_PACK)
@@ -1063,7 +1148,7 @@ def main():
                     win_MAIN.UnHide()
                     win_append_TODAY_ARCH.Close()
                     break
-                #--- ev_cfg_PACK 'Window win_cfg_PACK' -------------------------
+                #--- ev_cfg_PACK 'Window append_TODAY' -------------------------
                 event_menu_append_TODAY(_gl, win_append_TODAY_ARCH, ev_append_TODAY, vals_append_TODAY)
         #
     return 0
