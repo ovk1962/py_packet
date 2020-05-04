@@ -128,13 +128,8 @@ class Class_GL():
         self.dt_start       = ''    # 2017-01-01 00:00:00
         self.dt_start_sec   = 0     # 2017-01-01 00:00:00
         self.path_file_TXT  = ''    # c:\\hist_log_ALOR.txt
-        # cfg_pack
-        #self.nm   = []  # list NM   of packets
-        #self.koef = []  # list KOEF of packets
-        #self.nul  = []  # list NUL  of packets
-        #self.ema  = []  # list EMA  of packets
         #
-        self.cfg_pac = Class_cfg_PCK()
+        self.cfg_pck = Class_cfg_PCK()
         #
         self.dt_start_sec = 0
         #
@@ -190,7 +185,7 @@ class Class_GL():
     def prn_cfg_pack(self):
         frm = '{:-^5}{:-^35}{:-^5}{:-^10}'
         print(frm.format('nm','koef[]','nul','ema[]','        '))
-        for item in self.cfg_pac.arr:
+        for item in self.cfg_pck.arr:
             print(item)
 
     def unpack_cfg_soft(self):
@@ -217,7 +212,7 @@ class Class_GL():
         try:
             cfg = self.db_tod.read_tbl('cfg_PACK')
             if cfg[0] > 0: return cfg
-            c = self.cfg_pac
+            c = self.cfg_pck
             c.arr = []
             for item in cfg[1]:
                 arr_k    = item[1].split(',')
@@ -240,7 +235,7 @@ class Class_GL():
         print('=> _GL write_cfg_pack ')
         try:
             cfg_list = []
-            c = self.cfg_pac
+            c = self.cfg_pck
             #  ['pack1', [[0, 3, 'SR'], [1, 2, 'GZ']], 7517, [1111, 150]]
             #  ['pack1', '0:3:SR,1:2:GZ', 7517, '1111:150']
             for j in range(len(c.arr)):
@@ -252,47 +247,6 @@ class Class_GL():
                 str_ema = ':'.join((str(s) for s in c.arr[j][c.ema]))
                 cfg_list.append([str_nm, str_koef[:-1], int_nul, str_ema])
 
-        except Exception as ex:
-            return [1, ex]
-        return [0, cfg_list]
-
-
-    def unpack_cfg_pack(self):
-        print('=> _GL unpack_cfg_pack ')
-        try:
-            cfg = self.db_tod.read_tbl('cfg_PACK')
-            if cfg[0] > 0: return cfg
-            self.nm   = []  # list NM   of packets
-            self.koef = []  # list KOEF of packets
-            self.nul  = []  # list NUL  of packets
-            self.ema  = []
-            for item in cfg[1]:
-                self.nm.append(item[0])          # ['pckt0']
-                arr_k    = item[1].split(',')
-                arr_koef = []
-                for item_k in arr_k:             # '0:2:SR' => [0, 32, 'SR']
-                    buf_k = [int(f) if f.replace('-','').isdigit() else f for f in item_k.split(':')]
-                    arr_koef.append(buf_k)
-                self.koef.append(arr_koef)       #  [[0, 2, 'SR'],[9, -20, 'MX'], ...
-                self.nul.append(int(item[2]))    #  [0]
-                self.ema.append([int(e) for e in item[3].split(':')]) # [1111, 15]
-
-        except Exception as ex:
-            return [1, ex]
-
-        return [0, cfg]
-
-    def pack_arr_cfg(self):
-        print('=> _PACK pack_arr_cfg ')
-        try:
-            cfg_list = []
-            for j, jtem in enumerate(self.nm):
-                arr_koef = ''
-                for ktem in self.koef[j]:
-                    str_koef = ':'.join([str(f) for f in ktem])
-                    arr_koef += str_koef + ','
-                buf = [self.nm[j], arr_koef[:-1], str(self.nul[j]), ':'.join([str(f) for f in self.ema[j]])]
-                cfg_list.append(buf)
             r_update = self.db_tod.update_tbl('cfg_PACK', cfg_list, val = ' VALUES(?,?,?,?)')
             if r_update[0] == 1:
                 return [1, r_update[1]]
@@ -300,6 +254,51 @@ class Class_GL():
         except Exception as ex:
             return [1, ex]
         return [0, cfg_list]
+
+
+    # def unpack_cfg_pack(self):
+        # print('=> _GL unpack_cfg_pack ')
+        # try:
+            # cfg = self.db_tod.read_tbl('cfg_PACK')
+            # if cfg[0] > 0: return cfg
+            # self.nm   = []  # list NM   of packets
+            # self.koef = []  # list KOEF of packets
+            # self.nul  = []  # list NUL  of packets
+            # self.ema  = []
+            # for item in cfg[1]:
+                # self.nm.append(item[0])          # ['pckt0']
+                # arr_k    = item[1].split(',')
+                # arr_koef = []
+                # for item_k in arr_k:             # '0:2:SR' => [0, 32, 'SR']
+                    # buf_k = [int(f) if f.replace('-','').isdigit() else f for f in item_k.split(':')]
+                    # arr_koef.append(buf_k)
+                # self.koef.append(arr_koef)       #  [[0, 2, 'SR'],[9, -20, 'MX'], ...
+                # self.nul.append(int(item[2]))    #  [0]
+                # self.ema.append([int(e) for e in item[3].split(':')]) # [1111, 15]
+
+        # except Exception as ex:
+            # return [1, ex]
+
+        # return [0, cfg]
+
+    # def pack_arr_cfg(self):
+        # print('=> _PACK pack_arr_cfg ')
+        # try:
+            # cfg_list = []
+            # for j, jtem in enumerate(self.nm):
+                # arr_koef = ''
+                # for ktem in self.koef[j]:
+                    # str_koef = ':'.join([str(f) for f in ktem])
+                    # arr_koef += str_koef + ','
+                # buf = [self.nm[j], arr_koef[:-1], str(self.nul[j]), ':'.join([str(f) for f in self.ema[j]])]
+                # cfg_list.append(buf)
+            # r_update = self.db_tod.update_tbl('cfg_PACK', cfg_list, val = ' VALUES(?,?,?,?)')
+            # if r_update[0] == 1:
+                # return [1, r_update[1]]
+
+        # except Exception as ex:
+            # return [1, ex]
+        # return [0, cfg_list]
 
     def rd_term_FUT(self):
         # read data FUT from file 'path_file_DATA'----------------------
@@ -478,7 +477,7 @@ class Class_GL():
         print('=> _PACK clc_ASK_BID ', len(arr_FUT))
         try:
             #print('point 0')
-            c = self.cfg_pac
+            c = self.cfg_pck
             b_null = True if (c.arr[0][c.nul] == 0) else False
 
             ''' init  table ARCHIV_PACK  --------------------'''
@@ -522,7 +521,7 @@ class Class_GL():
     def clc_EMA(self, arr_pk, last_pk):
         print('=> _PACK clc_EMA ', len(arr_pk))
         b_null = True if (last_pk.ind_s == 0) else False
-        c = self.cfg_pac
+        c = self.cfg_pck
         try:
             nm_pcks = len(c.arr)
             koef_EMA, k_EMA_rnd = [], []
@@ -584,7 +583,7 @@ class Class_GL():
     def calc_arr_pck(self):
         print('=> _PACK calc_arr_pck ')
         try:
-            c = self.cfg_pac
+            c = self.cfg_pck
             #c.arr[]nul = [0 for i in range(len(c.arr))]
             for i in range(len(c.arr)):
                 c.arr[i][c.nul] = 0
@@ -765,8 +764,8 @@ def event_menu_win_MAIN(ev, values, _gl, win):
     #-------------------------------------------------------------------
     if ev == 'calc_hst_PACK_a'  :
         if 'OK' == sg.PopupOKCancel('\nCalc table *hist_PACK*\n  from db_ARCH\n '):
-            #_gl.nul = [0 for i in range(len(_gl.cfg_pac.arr))]
-            c = _gl.cfg_pac
+            #_gl.nul = [0 for i in range(len(_gl.cfg_pck.arr))]
+            c = _gl.cfg_pck
             for i in range(len(c.arr)):
                 c.arr[i][c.nul] = 0
             #_gl.nul = [0 for i in range(len(_gl.nm))]
@@ -900,13 +899,43 @@ def event_menu_CFG_PACK(_gl, win, ev = '-rd_cfg_PACK-', val = {'-nm_pack-':0} ):
     if ev == '-rd_cfg_PACK-':
         print('-rd_cfg_PACK-')
         _gl.read_cfg_pack()
-        # print('-nm_pack- = ', int(val['-nm_pack-']) )
-        # win.FindElement('-nm-').Update(_gl.nm[int(val['-nm_pack-'])])
-        # win.FindElement('-koef-').Update(_gl.koef[int(val['-nm_pack-'])])
-        # win.FindElement('-ema-').Update(_gl.ema[int(val['-nm_pack-'])])
+        matrix = [item for item in _gl.cfg_pck.arr]
+        win.FindElement('_table_').Update(values= matrix)
+        win.
+                        #justification='center',
+                        #alternating_row_color='lightblue',
     #-------------------------------------------------------------------
     if ev == '-update_cfg_PACK-':
         print('-update_cfg_PACK-')
+        _gl.read_cfg_pack()
+        matrix = [item for item in _gl.cfg_pck.arr]
+        win.FindElement('_table_').Update(values= matrix)
+        c = _gl.cfg_pck
+        if len(val['_table_']) == 0:
+            sg.PopupOK('\n You have to choise ROW !\n',
+                    background_color = 'Purple')
+        else:
+            print('val => choise ROW => ', val)
+            sel_string = val['_table_'][0]
+
+            print('c.arr[sel_string]  ', c.arr[sel_string])
+
+            # to input new koef-s makes new Window
+            layout = [[sg.Text('Please enter *nm*, *koef*, *ema*')],
+            [sg.Text('Name',    size=(10, 1)), sg.InputText(c.arr[sel_string][c.nm],     do_not_clear=True, key='-NAME_PACKET-')],
+            [sg.Text('EMA ',    size=(10, 1)), sg.InputText(c.arr[sel_string][c.ema][0], do_not_clear=True, key='-EMA_PACKET-')],
+            [sg.Text('EMAr',    size=(10, 1)), sg.InputText(c.arr[sel_string][c.ema][1], do_not_clear=True, key='-EMA_r_PACKET-')],
+            [sg.Button('Submit'), sg.Button('Cancel')]]
+
+            w = sg.Window('update_cfg_PACK', grab_anywhere=True, ).Layout(layout)
+            event, values = w.Read()
+            print('event  ', event)
+            print('values ', values)
+            if event == 'Submit':
+                c.arr[sel_string][c.nm] = values['-NAME_PACKET-']
+                print('c.arr[sel_string]  ', c.arr[sel_string])
+            sg.PopupOK('\n You have to choise ROW !\n')
+            w.Close()
     #-------------------------------------------------------------------
     print('rq = ', rq)
 #=======================================================================
@@ -1056,10 +1085,10 @@ def main():
                  sg.Button('Close')],]
     #
     header_list = [' nm ','             koef            ',' nul ',' ema ']
-    matrix = [item for item in _gl.cfg_pac.arr]
+    matrix = [item for item in _gl.cfg_pck.arr]
     MAX_ROWS = len(matrix)
     print('MAX_ROWS = ', MAX_ROWS)
-    print('len_gl.cfg_pac.arr = ', len(_gl.cfg_pac.arr))
+    print('len_gl.cfg_pck.arr = ', len(_gl.cfg_pck.arr))
     MAX_COL  = len(header_list)
     #matrix = [[nm, kf, em, str(nl)] for nm, kf, em, nl in zip(_gl.nm, _gl.koef, _gl.ema, _gl.nul)]
     lay_cfg_PACK = [[sg.Table(values= matrix,
@@ -1084,7 +1113,7 @@ def main():
     #
     #sg.theme('DarkTeal12')   # Add a touch of color
     win_MAIN = sg.Window(_gl.titul, grab_anywhere=True).Layout(lay_MAIN).Finalize()
-    win_MAIN_mode, win_MAIN_timeout = 'AUTO', 3000
+    win_MAIN_mode, win_MAIN_timeout = 'Manual', 36000
     #
     while True:
         #=== check 'Window MAIN' =======================================
@@ -1106,7 +1135,7 @@ def main():
         if ev_MAIN == 'update_cfg_SOFT':
             win_MAIN.Hide()
             _gl.unpack_cfg_soft()
-            win_cfg_SOFT = sg.Window('update_cfg_SOFT',
+            win_cfg_SOFT = sg.Window('update_cfg_SOFT', grab_anywhere=True,
                     location=(450,25)).Layout(lay_cfg_SOFT[:]).Finalize()
             event_menu_CFG_SOFT(_gl, win_cfg_SOFT)
             while True:
@@ -1124,11 +1153,11 @@ def main():
             win_MAIN.Hide()
             #_gl.unpack_cfg_pack()
             _gl.read_cfg_pack()
-            win_cfg_PACK = sg.Window('update_cfg_PACK',
-                    location=(150,200)).Layout(lay_cfg_PACK[:]).Finalize()
-            event_menu_CFG_PACK(_gl, win_cfg_PACK)
+            win_cfg_PACK = sg.Window('update_cfg_PACK', grab_anywhere=True,
+                    location=(250,250)).Layout(lay_cfg_PACK[:])
+            #event_menu_CFG_PACK(_gl, win_cfg_PACK)
             while True:
-                ev_cfg_PACK, vals_cfg_PACK = win_cfg_PACK.Read(timeout=1000)
+                ev_cfg_PACK, vals_cfg_PACK = win_cfg_PACK.Read(timeout=3000)
                 if ev_cfg_PACK in [None, 'Close', 'Exit']:
                     win_MAIN.UnHide()
                     win_cfg_PACK.Close()
