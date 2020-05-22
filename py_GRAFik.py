@@ -11,7 +11,7 @@ import math
 import PySimpleGUI as sg
 #print(sg.__file__)
 #=======================================================================
-clr = ['red', 'blue', 'green', 'brown', 'black', 'magenta', 'cyan', 'indigo', 'gold', 'purple',]
+clr = ['red', 'blue', 'green', 'black', 'coral', 'navy', 'teal', 'gray',  'brown', 'indigo', 'gold', 'purple',]
 class Class_DB_SQLite():
     def __init__(self, path_db):
         self.path_db  = path_db
@@ -69,15 +69,6 @@ class Class_LOGGER():
     #-------------------------------------------------------------------
     def wr_log_error(self, msg):
         self.logger.error(msg)
-#=======================================================================
-class Class_str_FUT():
-    fAsk, fBid = range(2)
-    def __init__(self):
-        self.ind_s, self.dt, self.arr  = 0, '', []
-    def __retr__(self):
-        return 'ind_s = {}, dt = {}{} arr={}'.format(self.ind_s, self.dt, '\n', str(self.arr))
-    def __str__(self):
-        return 'ind_s = {}, dt = {}{} arr={}'.format(self.ind_s, self.dt, '\n', str(self.arr))
 #=======================================================================
 class Class_str_PCK():
     pAsk, pBid, EMAf, EMAf_r, cnt_EMAf_r = range(5)
@@ -195,12 +186,15 @@ def event_menu_win_GRAPH(ev, values, _gl, win):
         _gl.arr_pck_t = _gl.unpack_str_pck(rep[1])[1]
 
     #-------------------------------------------------------------------
-    if ev in ['cmb_nm_pack',  'cmb_graph', '__TIMEOUT__'] :
+    if ev in ['cmb_nm_pack',  'cmb_graph', 'REFRESH', '__TIMEOUT__'] :
         #--- fix number ticks in ARCHIV
-        num_discr = 0
-        if values['cmb_graph'] == 'GRAPH_1_day' : num_discr = 1  * 520
-        if values['cmb_graph'] == 'GRAPH_5_day' : num_discr = 5  * 520
+        num_discr = 3
+        if values['cmb_graph'] == 'GRAPH_slider' :
+            num_discr = int(values['sld_graph']) * 520
+        if values['cmb_graph'] == 'GRAPH_1_day' : num_discr = 1 * 520
         if values['cmb_graph'] == 'GRAPH_10_day': num_discr = 10 * 520
+        if values['cmb_graph'] == 'GRAPH_20_day': num_discr = 20 * 520
+        if values['cmb_graph'] == 'GRAPH_30_day': num_discr = 30 * 520
         if values['cmb_graph'] == 'GRAPH_all'   : num_discr = len(_gl.arr_pck_a)
         print('num_discr  = ', num_discr)
 
@@ -253,10 +247,13 @@ def event_menu_win_GRAPH(ev, values, _gl, win):
         pAsk, pBid, EMAf, EMAf_r, cnt_EMAf_r = range(5)
         gr_Y = []
 
-        nul_index = num_discr - 10
+        nul_index = num_discr - 10 - int(values['sld_null']) * 520
         nul_arr = [ int((prc[pAsk] + prc[pBid])/2) for prc in _gl.arr_pk_graph[nul_index].arr ]
         for item in _gl.arr_pk_graph:
-            gr_Y.append([int((prc[pAsk] + prc[pBid])/2) - nul_arr[i] for i, prc in enumerate (item.arr)])
+            buf = [int((prc[pAsk] + prc[pBid])/2) - nul_arr[i] for i, prc in enumerate (item.arr)]
+            for i, prc in enumerate (item.arr):
+                buf.append( prc[EMAf_r] - nul_arr[i] )
+            gr_Y.append(buf)
         print('gr_Y[0]  = ', gr_Y[0])
         print('gr_Y[-1] = ', gr_Y[-1])
 
@@ -267,6 +264,10 @@ def event_menu_win_GRAPH(ev, values, _gl, win):
         print('k_max_Y = ',k_max_Y)
         print('k_min_Y = ',k_min_Y)
         print('k_gr_Y  = ',k_gr_Y)
+
+        for y in range(step_Y, Y_top_right, step_Y):
+            cur_ASK  = int(y*k_gr_Y + k_min_Y)
+            graph.DrawText(str(cur_ASK) , (18, y + 5), color='black')
 
         if values['cmb_graph'] == 'GRAPH_1_day' :
             for i, item in enumerate(gr_Y[1:]):
@@ -285,111 +286,9 @@ def event_menu_win_GRAPH(ev, values, _gl, win):
                     cur_Y  = int((jtem   - k_min_Y) / k_gr_Y)
                     graph.DrawPoint((cur_X, cur_Y), size=1, color=clr[j])
 
-
-
-
         # sg.PopupOK('\nDrawPoint *gr_Y* successfully !\n',
                     # background_color = 'LightGreen')
 
-        # #--- fix FUNCTIONs for GRAPHik
-        # gr_X, gr_Y0, gr_ASK, gr_BID, gr_EMAf, gr_EMAf_r, gr_cnt_EMAf_r = [],[],[],[],[],[],[]
-        # pAsk, pBid, EMAf, EMAf_r, cnt_EMAf_r = range(5)
-        # for item in _gl.arr_pk_graph:
-            # gr_X.append(item.dt)
-            # gr_Y0.append(item.arr[0][EMAf])
-            # gr_ASK.append(item.arr[1][pAsk])
-            # gr_BID.append(item.arr[1][pBid])
-            # gr_EMAf.append(item.arr[1][EMAf])
-            # gr_EMAf_r.append(item.arr[1][EMAf_r])
-            # gr_cnt_EMAf_r.append(item.arr[1][cnt_EMAf_r])
-
-        # print('gr_X[-1] = ', gr_X[-1])
-
-        # graph.Erase()
-        # # Draw axis X
-        # step_X = int(X_top_right/10)
-        # for x in range(step_X, X_top_right, step_X):
-            # graph.DrawLine((x,Y_bot_left+25), (x, Y_top_right), color='lightgrey')
-
-        # # Draw axis Y
-        # step_Y = int(Y_top_right/10)
-        # for y in range(step_Y, Y_top_right, step_Y):
-            # graph.DrawLine((X_bot_left + 30,y), (X_top_right, y), color='lightgrey')
-            # #graph.DrawText(str(y) , (15, y), color='black')
-
-        # # Calc X for Graph
-        # k_gr_X = num_discr/X_top_right
-        # print('k_gr_X = ', k_gr_X)
-
-        # # Draw LABELS of axis X
-        # for x in range(step_X, X_top_right, step_X):
-            # i_gr_X = int(x*k_gr_X)
-            # graph.DrawText( gr_X[i_gr_X][0], (x,5),  color='black')
-            # graph.DrawText( gr_X[i_gr_X][1], (x,18), color='black')
-
-        # # Draw Graph Y
-        # k_gr_Y0  = (max(gr_Y0) - min(gr_Y0))/Y_top_right
-        # k_min_Y0 =  min(gr_Y0)
-
-        # k_max_Y1 = max(max(gr_ASK),max(gr_BID),max(gr_EMAf),max(gr_EMAf_r) )
-        # k_max_Y1 = int(math.ceil(k_max_Y1 / 1000.0)) * 1000
-        # k_min_Y1 = min(min(gr_ASK),min(gr_BID),min(gr_EMAf),min(gr_EMAf_r) )
-        # k_min_Y1 = int(math.ceil(k_min_Y1 / 1000.0)) * 1000 - 1000
-        # k_gr_Y1  = (k_max_Y1 - k_min_Y1)/Y_top_right
-
-        # # Draw LABELS of axis Y1
-        # step_Y = int(Y_top_right/10)
-        # for y in range(step_Y, Y_top_right, step_Y):
-            # cur_ASK  = int(y*k_gr_Y1 + k_min_Y1)
-            # graph.DrawText(str(cur_ASK) , (18, y + 5), color='black')
-        # print('k_max_Y1  = ', k_max_Y1)
-        # print('k_min_Y1  = ', k_min_Y1)
-        # #print('num_discr = ',  num_discr)
-        # #print('k_gr_Y1   = ', k_gr_Y1 )
-
-        # if max(gr_cnt_EMAf_r) == min(gr_cnt_EMAf_r):
-            # k_gr_Y2  = (max(gr_cnt_EMAf_r) + min(gr_cnt_EMAf_r))/Y_top_right
-        # else:
-            # k_gr_Y2  = (max(gr_cnt_EMAf_r) - min(gr_cnt_EMAf_r))/Y_top_right
-        # if k_gr_Y2 == 0:
-            # k_gr_Y2 = 1
-        # k_min_Y2 =  min(gr_cnt_EMAf_r)
-        # print('max(gr_cnt_EMAf_r)  = ', max(gr_cnt_EMAf_r))
-        # print('k_min_Y2  = ', k_min_Y2)
-        # print('num_discr = ', num_discr)
-        # print('k_gr_Y2   = ', k_gr_Y2 )
-
-        # for i, item in enumerate(gr_Y0):
-            # if i > 0:
-                # prev_X = int((i - 1) / k_gr_X)
-                # cur_X  = int((i - 0) / k_gr_X)
-
-                # #prev_Y0 = int((gr_Y0[i-1] - k_min_Y0) / k_gr_Y0)
-                # cur_Y0  = int((gr_Y0[i]   - k_min_Y0) / k_gr_Y0)
-                # #graph.DrawLine((prev_X, prev_Y0), (cur_X, cur_Y0),      width=3, color='red')
-                # graph.DrawPoint((cur_X, cur_Y0), size=3, color='red')
-
-                # #prev_ASK = int((gr_ASK[i-1] - k_min_Y1) / k_gr_Y1)
-                # cur_ASK  = int((gr_ASK[i]   - k_min_Y1) / k_gr_Y1)
-                # #graph.DrawLine((prev_X, prev_ASK), (cur_X, cur_ASK),    width=1, color='green')
-                # graph.DrawPoint((cur_X, cur_ASK), size=1, color='green')
-
-                # #prev_BID = int((gr_BID[i-1] - k_min_Y1) / k_gr_Y1)
-                # cur_BID  = int((gr_BID[i]   - k_min_Y1) / k_gr_Y1)
-                # #graph.DrawLine((prev_X, prev_BID), (cur_X, cur_BID),    width=1, color='green')
-                # graph.DrawPoint((cur_X, cur_BID), size=1, color='green')
-
-                # prev_EMAf = int((gr_EMAf[i-1] - k_min_Y1) / k_gr_Y1)
-                # cur_YEMAf = int((gr_EMAf[i]   - k_min_Y1) / k_gr_Y1)
-                # graph.DrawLine((prev_X, prev_EMAf), (cur_X, cur_YEMAf), width=1, color='blue')
-
-                # prev_EMAf_r = int((gr_EMAf_r[i-1] - k_min_Y1) / k_gr_Y1)
-                # cur_YEMAf_r = int((gr_EMAf_r[i]   - k_min_Y1) / k_gr_Y1)
-                # #graph.DrawLine((prev_X, prev_EMAf_r), (cur_X, cur_YEMAf_r), width=3, color='blue')
-
-                # prev_Y2 = int((gr_cnt_EMAf_r[i-1] - k_min_Y2) / k_gr_Y2)
-                # cur_Y2  = int((gr_cnt_EMAf_r[i]   - k_min_Y2) / k_gr_Y2)
-                # graph.DrawLine((prev_X, prev_Y2), (cur_X, cur_Y2),      width=3, color='blue') #color='brown')
     #-------------------------------------------------------------------
     if ev == 'rd_hist_PACK_today'  :
         if 'OK' == sg.PopupOKCancel('\nRead table *hist_PACK*\n  from db_TODAY\n '):
@@ -454,6 +353,12 @@ def main():
                             background_color = 'brown',
                             no_titlebar = True)
             return 0
+        else:
+            if len(rep[1]) == 0:
+                sg.PopupError('\ndb_ARCH table hist_PACK is EMPTY !\n',
+                                background_color = 'brown',
+                                no_titlebar = True)
+                return 0
         #---------------------------------------------------------------
         _gl.arr_pck_a = []
         _gl.arr_pck_a = _gl.unpack_str_pck(rep[1])[1]
@@ -470,33 +375,45 @@ def main():
         #---------------------------------------------------------------
         _gl.arr_pck_t = []
         _gl.arr_pck_t = _gl.unpack_str_pck(rep[1])[1]
-        #_gl.prn_arr('arr_pck_t', _gl.arr_pck_t)
         break
     #
-    lay_GRAPH = [[sg.Menu(menu_def, tearoff=False, key='MENU') ],
-                [sg.Graph(canvas_size=(X_top_right, Y_top_right),
+    obj_Graph = sg.Graph(canvas_size=(X_top_right, Y_top_right),
                  graph_bottom_left=(X_bot_left,  Y_bot_left ),
                  graph_top_right  =(X_top_right, Y_top_right),
                  background_color='white smoke', #'gray',
-                 key='graph')],
-                [sg.CBox('P'+str(i), key='CB'+str(i)) for i, item in enumerate(_gl.cfg_pck.arr)],
-                #[sg.Combo([item[0] for item in _gl.cfg_pck.arr],
-                #    default_value = _gl.cfg_pck.arr[0][0],
-                #    enable_events =True,
-                #    auto_size_text=True,
-                #    key='cmb_nm_pack'),
-                #    sg.T(3*' '),
-                [sg.Combo(['GRAPH_1_day', 'GRAPH_5_day', 'GRAPH_10_day', 'GRAPH_all' ],
-                    default_value = 'GRAPH_1_day',
+                 key='graph')
+    obj_CheckBox = [[sg.Checkbox('P'+str(i), key='CB'+str(i))] for i in range(len(_gl.cfg_pck.arr))]
+    #
+    lay_GRAPH = [[sg.Menu(menu_def, tearoff=False, key='MENU') ],
+                #[obj_Graph],
+                [sg.Column(obj_CheckBox), obj_Graph],
+                [sg.Slider(range=(1,15),
+                         default_value=3,
+                         size=(20,15),
+                         orientation='horizontal',
+                         font=('Helvetica', 10),
+                         key='sld_graph'),
+                 sg.Slider(range=(1,15),
+                         default_value=1,
+                         size=(20,15),
+                         orientation='horizontal',
+                         font=('Helvetica', 10),
+                         key='sld_null'),
+                         ],
+                [sg.Combo(['GRAPH_slider', 'GRAPH_1_day', 'GRAPH_10_day', 'GRAPH_20_day', 'GRAPH_30_day', 'GRAPH_all' ],
+                    default_value = 'GRAPH_slider',
                     enable_events =True,
                     auto_size_text=True,
                     key='cmb_graph'),
                     sg.T(10*' '),
-                 sg.Quit(auto_size_button=True)]]
+                    sg.Button('REFRESH', auto_size_button=True),
+                    sg.T(10*' '),
+                    sg.Quit(auto_size_button=True)]]
 
     #sg.theme('DarkTeal12')   # Add a touch of color
-    win_GRAPH = sg.Window('GRAFik', grab_anywhere=True).Layout(lay_GRAPH).Finalize()
+    win_GRAPH = sg.Window('GRAFik').Layout(lay_GRAPH).Finalize()
     win_GRAPH_mode, win_GRAPH_timeout = 'Manual', 360000
+    win_GRAPH.FindElement('CB0').Update(value=1)
     #
     while True:
         #=== check 'Window MAIN' =======================================
