@@ -15,20 +15,29 @@ err_lmb = lambda s: sg.PopupError(s, no_titlebar = True)
 wrn_lmb = lambda s: sg.PopupOK(s,  background_color = 'Gold', no_titlebar = True)
 ok_lmb  = lambda s: sg.PopupOK(s,  background_color = 'LightGreen', no_titlebar = True)
 menu_def = [sg.Menu([
-            ['TABLES', [  'CFG_SOFT', 'CFG_PACK',  'DATA_FUT',  '---',
+            ['TABLES', [  'CFG_SOFT', 'CFG_PACK',  'DATA_FUT',  'DATA_PACK',  '---',
                         'Exit',],]],
             tearoff=False, key='MENU') ]
 #=======================================================================
-class const():
-    head_cfg_soft = ['name', 'val']
-    head_cfg_pack = ['nm', 'koef', 'nul', 'ema']
-    head_data_fut = ['P_code', 'Rest', 'Var_mrg', 'Open_prc', 'Last_prc',
+class cnst:
+    # lst_cfg_soft
+    head_cfg_soft  = ['name', 'val']
+    # cfg_pck
+    kNm, kKoef, kNul, kEma, kGo = range(5)
+    head_cfg_pack  = ['nm', 'koef', 'nul', 'ema', 'go']
+    # lst_cfg_pck
+    # kNm, kKoef, kNul, kEma = range(4)
+    #
+    head_data_fut  = ['P_code', 'Rest', 'Var_mrg', 'Open_prc', 'Last_prc',
                 'Ask', 'Buy_qty', 'Bid', 'Sell_qty', 'Fut_go', 'Open_pos' ]
-    fAsk, fBid = range(2)
-    kNm, kKoef, kNul, kEma = range(4)
-    aBal, aPrf, aGo, aDep = range(4)
-    pAsk, pBid, pEMAf, pEMAf_r, pCnt_EMAf_r = range(5)
     sP_code, sRest, sVar_mrg, sOpen_prc, sLast_prc, sAsk, sBuy_qty, sBid, sSell_qty, sFut_go, sOpen_pos  = range(11)
+    #
+    head_data_pack = ['Pack_name', 'Pack_go']
+    # arr_fut_a  arr_fut_t
+    fAsk, fBid = range(2)
+    aBal, aPrf, aGo, aDep = range(4)
+    # arr_fut_a  arr_fut_t
+    pAsk, pBid, pEMAf, pEMAf_r, pCnt_EMAf_r = range(5)
 #=======================================================================
 class Class_DB_SQLite():
     def __init__(self, path_db):
@@ -164,17 +173,23 @@ class Class_GL():
             self.cfg_pck     = []
             for item in tbl[1]:
                 self.lst_cfg_pck.append(list(item))
-            #for item in self.lst_cfg_pck: print(item)
+            # for item in tbl[1]: print(item)
+            # print()
+            # for item in self.lst_cfg_pck: print(item)
+            # ok_lmb('lst_cfg_pck')
             #
             for item in self.lst_cfg_pck:
-                arr_k    = item[const.kKoef].split(',')
+                arr_k    = item[cnst.kKoef].split(',')
                 arr_koef, buf = [], []
                 for item_k in arr_k:             # '0:2:SR' => [0, 32, 'SR']
                     arr_koef.append([int(f) if f.replace('-','').isdigit() else f for f in item_k.split(':')])
-                buf = [item[const.kNm], arr_koef, int(item[const.kNul]), [int(e) for e in item[const.kEma].split(':')]]
+                buf = [item[cnst.kNm], arr_koef, int(item[cnst.kNul]), [int(e) for e in item[cnst.kEma].split(':')]]
+                while len(cnst.head_cfg_pack) > len(buf):
+                    buf.append('')
                 self.cfg_pck.append(buf)
             #
-            #print('=> _GL read_cfg_pack / len self.cfg_pck = ', len(self.cfg_pck))
+            #for item in self.cfg_pck: print(item)
+            #ok_lmb('cfg_pck')
         except Exception as ex:
             return [1, ex]
         return [0, tbl]
@@ -187,15 +202,13 @@ class Class_GL():
             #  ['pack1', [[0, 3, 'SR'], [1, 2, 'GZ']], 7517, [1111, 150]]
             #  ['pack1', '0:3:SR,1:2:GZ', 7517, '1111:150']
             for j in range(len(c)):
-                str_nm = c[j][const.kNm]
+                str_nm = c[j][cnst.kNm]
                 str_koef = ''
-                for ss in c[j][const.kKoef]:
+                for ss in c[j][cnst.kKoef]:
                     str_koef += ':'.join((str(s) for s in ss)) + ','
-                int_nul = c[j][const.kNul]
-                str_ema = ':'.join((str(s) for s in c[j][const.kEma]))
+                int_nul = c[j][cnst.kNul]
+                str_ema = ':'.join((str(s) for s in c[j][cnst.kEma]))
                 cfg_list.append([str_nm, str_koef[:-1], int_nul, str_ema])
-
-            #print('=> _GL write_cfg_pack / len self.cfg_pck = ', len(self.cfg_pck))
 
             r_update = self.db_tod.update_tbl('cfg_PACK', cfg_list, val = ' VALUES(?,?,?,?)')
             if r_update[0] == 1:
@@ -250,7 +263,7 @@ class Class_GL():
                     s.dt    = i_str[1].split('|')[0].split(' ')
                     arr_buf = i_str[1].replace(',', '.').split('|')[1:-1]
                     for item in (zip(arr_buf[::2], arr_buf[1::2])):
-                        s.arr.append([float(item[const.fAsk]), float(item[const.fBid])])
+                        s.arr.append([float(item[cnst.fAsk]), float(item[cnst.fBid])])
                     arr_fut.append(s)
                 if len(arr_fut) % 1000 == 0:  print(len(arr_fut), end='\r')
         except Exception as ex:
@@ -260,36 +273,31 @@ class Class_GL():
     def clc_ASK_BID(self, arr_FUT):
         print('=> _PACK clc_ASK_BID ', len(arr_FUT))
         try:
-            #print('point 0')
-            b_null = True if (self.cfg_pck[0][const.kNul] == 0) else False
+            b_null = True if (self.cfg_pck[0][cnst.kNul] == 0) else False
             ''' init  table ARCHIV_PACK  --------------------'''
             arr_pk  = []  # list of Class_str_FUT_PCK()
             nm_pcks = len(self.cfg_pck)
-            #print('point 1  ', nm_pcks)
             for idx, item in enumerate(arr_FUT): # change STRINGs
                 if idx % 1000 == 0:  print(idx, end='\r')
                 arr_bb = Class_str_FUT_PCK()
                 arr_bb.ind_s, arr_bb.dt  = item.ind_s, item.dt
-                #print('point 2  ', arr_bb)
-                for p in range(nm_pcks):
-                #for p, ptem in enumerate(self.nm):    # change PACKETs
+                for p in range(nm_pcks):        # change PACKETs
                     ask_p, bid_p, arr_pp = 0, 0, [0, 0, 0, 0, 0]
-                    #for jdx, jtem in enumerate(self.koef[p]): # calc PACK
-                    for jdx, jtem in enumerate(self.cfg_pck[p][const.kKoef]): # calc PACK
+                    for jdx, jtem in enumerate(self.cfg_pck[p][cnst.kKoef]): # calc PACK
                         i_koef, k_koef = jtem[0], jtem[1]
                         if k_koef > 0 :
-                            ask_p +=  k_koef * item.arr[i_koef][const.fAsk]
-                            bid_p +=  k_koef * item.arr[i_koef][const.fBid]
+                            ask_p +=  k_koef * item.arr[i_koef][cnst.fAsk]
+                            bid_p +=  k_koef * item.arr[i_koef][cnst.fBid]
                         if k_koef < 0 :
-                            ask_p +=  k_koef * item.arr[i_koef][const.fBid]
-                            bid_p +=  k_koef * item.arr[i_koef][const.fAsk]
+                            ask_p +=  k_koef * item.arr[i_koef][cnst.fBid]
+                            bid_p +=  k_koef * item.arr[i_koef][cnst.fAsk]
 
                     if idx == 0 and b_null:
                         arr_pp = [0, 0, 0, 0, 0]
-                        self.cfg_pck[p][const.kNul]= int((ask_p + bid_p)/2)
+                        self.cfg_pck[p][cnst.kNul]= int((ask_p + bid_p)/2)
                         arr_bb.arr.append(arr_pp)
                         continue
-                    arr_pp = [int(ask_p - self.cfg_pck[p][const.kNul]), int(bid_p - self.cfg_pck[p][const.kNul]), 0, 0, 0]
+                    arr_pp = [int(ask_p - self.cfg_pck[p][cnst.kNul]), int(bid_p - self.cfg_pck[p][cnst.kNul]), 0, 0, 0]
                     arr_bb.arr.append(arr_pp)
                 arr_pk.append(arr_bb)
 
@@ -300,14 +308,12 @@ class Class_GL():
 
     def clc_EMA(self, arr_pk, last_pk):
         print('=> _PACK clc_EMA ', len(arr_pk))
-        #print('=> _PACK last_pk.ind_s ', last_pk.ind_s)
         b_null = True if (last_pk.ind_s == 0) else False
-        #c = self.cfg_pck
         try:
             nm_pcks = len(self.cfg_pck)
             koef_EMA, k_EMA_rnd = [], []
             for kdx in range(nm_pcks):
-                k_ema = self.cfg_pck[kdx][const.kEma]
+                k_ema = self.cfg_pck[kdx][cnst.kEma]
                 koef_EMA.append(round(2/(1+int(k_ema[0])),5))
                 k_EMA_rnd.append(int(k_ema[1]))
             for idx, item in enumerate(arr_pk):
@@ -315,33 +321,19 @@ class Class_GL():
                 if idx == 0:
                     if not b_null:
                         arr_pk[0] = last_pk
-                        # print('arr_pk[0] = ', arr_pk[0], end = '\n')
                 else:
-                    # if not b_null:
-                        # print('item = ', idx, '  ', item, end = '\n')
                     for pdx, ptem in enumerate(item.arr):
-                        # if not b_null:
-                            # print('pdx/idx = ', pdx, '   ', idx)
-                            # print('pdx = ', pdx, '   ', arr_pk[idx].arr[pdx])
-                            # print('pdx = ', pdx, '   ', arr_pk[idx-1].arr[pdx])
                         cr = arr_pk[idx].arr[pdx]
                         pr = arr_pk[idx-1].arr[pdx]
-                        #
-                        cr[const.pEMAf]  = round(pr[const.pEMAf] + (int((ptem[const.pAsk] + ptem[const.pBid])/2) - pr[const.pEMAf]) * koef_EMA[pdx], 1)
-                        cr[const.pEMAf_r]= k_EMA_rnd[pdx] * math.ceil(cr[const.pEMAf] / k_EMA_rnd[pdx] )
-                        #if not b_null:
-                        #    print('pdx = ', pdx, '   ', cr[const.pEMAf], '   ', cr[const.pEMAf_r])
-                        if pr[const.pEMAf_r] > cr[const.pEMAf_r]:
-                            cr[const.pCnt_EMAf_r] = 0 if pr[const.pCnt_EMAf_r] > 0 else pr[const.pCnt_EMAf_r]-1
-                        elif pr[const.pEMAf_r] < cr[const.pEMAf_r]:
-                            cr[const.pCnt_EMAf_r] = 0 if pr[const.pCnt_EMAf_r] < 0 else pr[const.pCnt_EMAf_r]+1
+                        cr[cnst.pEMAf]  = round(pr[cnst.pEMAf] + (int((ptem[cnst.pAsk] + ptem[cnst.pBid])/2) - pr[cnst.pEMAf]) * koef_EMA[pdx], 1)
+                        cr[cnst.pEMAf_r]= k_EMA_rnd[pdx] * math.ceil(cr[cnst.pEMAf] / k_EMA_rnd[pdx] )
+                        if pr[cnst.pEMAf_r] > cr[cnst.pEMAf_r]:
+                            cr[cnst.pCnt_EMAf_r] = 0 if pr[cnst.pCnt_EMAf_r] > 0 else pr[cnst.pCnt_EMAf_r]-1
+                        elif pr[cnst.pEMAf_r] < cr[cnst.pEMAf_r]:
+                            cr[cnst.pCnt_EMAf_r] = 0 if pr[cnst.pCnt_EMAf_r] < 0 else pr[cnst.pCnt_EMAf_r]+1
                         else:
-                            cr[const.pCnt_EMAf_r] = pr[const.pCnt_EMAf_r]
-                        #if not b_null:
-                        #    print('pdx = ', pdx, '   ', pr[const.pCnt_EMAf_r], '   ', cr[const.pCnt_EMAf_r])
-
+                            cr[cnst.pCnt_EMAf_r] = pr[cnst.pCnt_EMAf_r]
         except Exception as ex:
-            #print(str(ex))
             return [1, ex]
 
         return [0, arr_pk]
@@ -358,9 +350,9 @@ class Class_GL():
                     buf_dt = item_hist.dt[0] + ' ' + item_hist.dt[1] + ' '
                     buf_s = ''
                     for i_pack, item_pack in enumerate(item_hist.arr):
-                        buf_s += str(item_pack[const.pAsk]) + ' ' + str(item_pack[const.pBid])   + ' '
-                        buf_s += str(item_pack[const.pEMAf]) + ' ' + str(item_pack[const.pEMAf_r]) + ' '
-                        buf_s += str(item_pack[const.pCnt_EMAf_r]) + '|'
+                        buf_s += str(item_pack[cnst.pAsk]) + ' ' + str(item_pack[cnst.pBid])   + ' '
+                        buf_s += str(item_pack[cnst.pEMAf]) + ' ' + str(item_pack[cnst.pEMAf_r]) + ' '
+                        buf_s += str(item_pack[cnst.pCnt_EMAf_r]) + '|'
                     pck_list.append((item_hist.ind_s, buf_dt + buf_s.replace('.', ',')))
             ''' rewrite data from table ARCHIV_PACK & PACK_TODAY & DATA ----'''
             r_update = db_pk.update_tbl(nm_tbl_pk, pck_list, val = ' VALUES(?,?)')
@@ -375,41 +367,20 @@ class Class_GL():
         print('=> _PACK calc_arr_pck ')
         try:
             for i in range(len(self.lst_cfg_pck)):
-                self.lst_cfg_pck[i][const.kNul] = 0
+                self.lst_cfg_pck[i][cnst.kNul] = 0
             rep = self.clc_ASK_BID(self.arr_fut_a)
             if rep[0] > 0:
-                #err_lmb(s_lmb('Did not CALC ASK_BID *hist_PACK*!') + s_lmb(rep[1]))
                 return [2, 'Did not CALC ASK_BID *hist_PACK*!']
-
             self.arr_pck_a = rep[1]
-
-            # rq = self.prn_arr('cfg_pck', self.cfg_pck)
-            # rq = self.prn_arr('lst_cfg_pck', self.lst_cfg_pck)
-            # ok_lmb(s_lmb('BEFORE 1 calc_arr_pck !'))
-
             self.write_cfg_pack()
-
-            # rq = self.prn_arr('cfg_pck', self.cfg_pck)
-            # rq = self.prn_arr('lst_cfg_pck', self.lst_cfg_pck)
-            # ok_lmb(s_lmb('BEFORE 2 calc_arr_pck !'))
-
             self.read_cfg_pack()
-
-            # rq = self.prn_arr('cfg_pck', self.cfg_pck)
-            # rq = self.prn_arr('lst_cfg_pck', self.lst_cfg_pck)
-            # ok_lmb(s_lmb('BEFORE 3 calc_arr_pck !'))
-
             rep = self.clc_EMA(self.arr_pck_a, Class_str_FUT_PCK())
             if rep[0] > 0:
-                #err_lmb(s_lmb('Did not CALC EMA *hist_PACK*!') + s_lmb(rep[1]))
                 return [3, 'Did not CALC EMA *hist_PACK*!']
-
             self.arr_pck_a = rep[1]
             rep = self.pack_arr_pck(self.arr_pck_a, self.db_arc, 'hist_PACK')
             if rep[0] > 0:
-                #err_lmb(s_lmb('Did not update *hist_PACK*!') + s_lmb(rep[1]))
                 return [4, 'Did not update *hist_PACK*!']
-
         except Exception as ex:
             return [1, ex]
         return [0, 'ok']
@@ -441,7 +412,7 @@ def open_CFG_SOFT(wndw, _gl):
                         [sg.Table(
                             values   = _gl.lst_cfg_soft,
                             num_rows = min(len(_gl.lst_cfg_soft), 10),
-                            headings = const().head_cfg_soft,
+                            headings = cnst.head_cfg_soft,
                             key      = '_CFG_SOFT_table_',
                             auto_size_columns     = True,
                             justification         = 'center',
@@ -460,9 +431,9 @@ def open_CFG_PACK(wndw, _gl):
     rep = _gl.read_cfg_pack()
     layout_CFG_PACK =[  menu_def,
                         [sg.Table(
-                            values   = _gl.lst_cfg_pck,
-                            num_rows = min(len(_gl.lst_cfg_pck), 25),
-                            headings = const().head_cfg_pack,
+                            values   = _gl.cfg_pck,
+                            num_rows = min(len(_gl.cfg_pck), 25),
+                            headings = cnst.head_cfg_pack,
                             key      = '_CFG_PACK_table_',
                             auto_size_columns     = True,
                             justification         = 'center',
@@ -491,16 +462,38 @@ def open_DATA_FUT(wndw, _gl):
                         [sg.Table(
                             values   = mtrx,
                             num_rows = min(len(mtrx), 30),
-                            headings = const().head_data_fut,
+                            headings = cnst.head_data_fut,
                             key      = '_DATA_FUT_table_',
                             auto_size_columns     = True,
                             justification         = 'center',
-                            alternating_row_color = 'lightgreen',
+                            alternating_row_color = 'lightsteelblue',
                             )],
                         [sg.Exit()]]
     wndw = sg.Window('DATA_FUT', location=(150, 200)).Layout(layout_DATA_FUT)
     return wndw
 #=======================================================================
+def open_DATA_PACK(wndw, _gl):
+    os.system('cls')  # on windows
+    wndw.Close()
+    mtrx = []
+    for item in _gl.cfg_pck:
+        print(item)
+        mtrx.append([item[cnst.kNm], item[cnst.kKoef]])
+    layout_DATA_PACK =[  menu_def,
+                        [sg.Table(
+                            values   = mtrx,
+                            num_rows = min(len(mtrx), 30),
+                            headings = cnst.head_data_pack,
+                            key      = '_DATA_PACK_table_',
+                            auto_size_columns     = True,
+                            justification         = 'center',
+                            alternating_row_color = 'lightgreen',
+                            )],
+                        [sg.Exit()]]
+    wndw = sg.Window('DATA_PACK', location=(200, 250)).Layout(layout_DATA_PACK)
+    return wndw
+#=======================================================================
+
 def event_menu_CFG_SOFT(ev, val, wndw, _gl):
     rq = [0,ev]
     #-------------------------------------------------------------------
@@ -547,9 +540,9 @@ def event_menu_CFG_PACK(ev, val, wndw, _gl):
             wrn_lmb('\n You MUST choise ROW !\n')
         else:
             slct = _gl.lst_cfg_pck[val['_CFG_PACK_table_'][0]]
-            chng = const().head_cfg_pack[:]
+            chng = cnst.head_cfg_pack[:]
             for i, item in enumerate(slct):
-                txt = sg.PopupGetText( const().head_cfg_pack[i], size=(55,1), default_text = item)
+                txt = sg.PopupGetText( cnst.head_cfg_pack[i], size=(55,1), default_text = item)
                 if txt == None:
                     chng[i] = item
                 else:
@@ -618,44 +611,44 @@ def main():
             # ok_lmb(s_lmb('Read table *data_fut* successfully !'))
             # os.system('cls')  # on windows
         #---------------------------------------------------------------
-        rep = _gl.db_arc.read_tbl('hist_FUT')
-        if rep[0] > 0:
-            err_lmb(s_lmb('Could not read table *hist_FUT* from ARCH!') + s_lmb(rep[1]))
-            return 0
-        req = _gl.unpack_str_fut(rep[1])
-        if req[0] > 0:
-            err_lmb(s_lmb('Did not unpack table *hist_FUT* from ARCH!') + s_lmb(rep[1]))
-            return 0
-        _gl.arr_fut_a = req[1]
-        # ok_lmb(s_lmb('Read table *data_fut* successfully !'))
-        # os.system('cls')  # on windows
-        #---------------------------------------------------------------
-        rep = _gl.calc_arr_pck()
-        if rep[0] > 0:
-            err_lmb(s_lmb('Could not CALC *hist_FUT* from ARCH!') + s_lmb(rep[1]))
-            return 0
-        # ok_lmb(s_lmb('CALC & rewrite table *hist_PACK* from ARCH successfully !'))
-        # os.system('cls')  # on windows
-        #---------------------------------------------------------------
-        rep = _gl.db_tod.read_tbl('hist_FUT')
-        if rep[0] > 0:
-            err_lmb(s_lmb('Could not read table *hist_FUT* from TODAY!') + s_lmb(rep[1]))
-            return 0
-        req = _gl.unpack_str_fut(rep[1])
-        if req[0] > 0:
-            err_lmb(s_lmb('Did not unpack table *hist_FUT* from TODAY!') + s_lmb(req[1]))
-            return 0
-        _gl.arr_fut_t = req[1]
-        #ok_lmb(s_lmb('Read table *hist_FUT* from TODAY successfully !'))
-        #os.system('cls')  # on windows
-        #---------------------------------------------------------------
-        if len(_gl.arr_fut_t)  == 0: break
-        rep = _gl.calc_arr_pck_today()
-        if rep[0] > 0:
-            err_lmb(s_lmb('Problem calc_arr_pck_today  *hist_FUT* from TODAY!') + s_lmb(rep[1]))
-            return 0
-        #ok_lmb(s_lmb('Calc table *hist_FUT* from TODAY successfully !'))
-        #os.system('cls')  # on windows
+        # rep = _gl.db_arc.read_tbl('hist_FUT')
+        # if rep[0] > 0:
+            # err_lmb(s_lmb('Could not read table *hist_FUT* from ARCH!') + s_lmb(rep[1]))
+            # return 0
+        # req = _gl.unpack_str_fut(rep[1])
+        # if req[0] > 0:
+            # err_lmb(s_lmb('Did not unpack table *hist_FUT* from ARCH!') + s_lmb(rep[1]))
+            # return 0
+        # _gl.arr_fut_a = req[1]
+        # # ok_lmb(s_lmb('Read table *data_fut* successfully !'))
+        # # os.system('cls')  # on windows
+        # #---------------------------------------------------------------
+        # rep = _gl.calc_arr_pck()
+        # if rep[0] > 0:
+            # err_lmb(s_lmb('Could not CALC *hist_FUT* from ARCH!') + s_lmb(rep[1]))
+            # return 0
+        # # ok_lmb(s_lmb('CALC & rewrite table *hist_PACK* from ARCH successfully !'))
+        # # os.system('cls')  # on windows
+        # #---------------------------------------------------------------
+        # rep = _gl.db_tod.read_tbl('hist_FUT')
+        # if rep[0] > 0:
+            # err_lmb(s_lmb('Could not read table *hist_FUT* from TODAY!') + s_lmb(rep[1]))
+            # return 0
+        # req = _gl.unpack_str_fut(rep[1])
+        # if req[0] > 0:
+            # err_lmb(s_lmb('Did not unpack table *hist_FUT* from TODAY!') + s_lmb(req[1]))
+            # return 0
+        # _gl.arr_fut_t = req[1]
+        # #ok_lmb(s_lmb('Read table *hist_FUT* from TODAY successfully !'))
+        # #os.system('cls')  # on windows
+        # #---------------------------------------------------------------
+        # if len(_gl.arr_fut_t)  == 0: break
+        # rep = _gl.calc_arr_pck_today()
+        # if rep[0] > 0:
+            # err_lmb(s_lmb('Problem calc_arr_pck_today  *hist_FUT* from TODAY!') + s_lmb(rep[1]))
+            # return 0
+        # #ok_lmb(s_lmb('Calc table *hist_FUT* from TODAY successfully !'))
+        # #os.system('cls')  # on windows
 
         break     # finish  init  --------------------------------------
 
@@ -668,13 +661,15 @@ def main():
         if event in (None, 'Exit'): break
         if event == '__TIMEOUT__':
             pass
-        if event in ['CFG_SOFT', 'CFG_PACK', 'DATA_FUT' ]:
+        if event in ['CFG_SOFT', 'CFG_PACK', 'DATA_FUT', 'DATA_PACK' ]:
             if event == 'CFG_SOFT':
                 wndw = open_CFG_SOFT(wndw, _gl)
             if event == 'CFG_PACK':
                 wndw = open_CFG_PACK(wndw, _gl)
             if event == 'DATA_FUT':
                 wndw = open_DATA_FUT(wndw, _gl)
+            if event == 'DATA_PACK':
+                wndw = open_DATA_PACK(wndw, _gl)
         event_menu_CFG_SOFT(event, values, wndw, _gl)
         event_menu_CFG_PACK(event, values, wndw, _gl)
 

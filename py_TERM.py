@@ -110,8 +110,6 @@ class Class_TERM():
         self.dt_start_sec   = 0     # 2017-01-01 00:00:00
         self.path_file_TXT  = ''    # c:\\hist_log_ALOR.txt
         #
-        self.dt_start_sec = 0
-        #
         self.dt_file = 0        # curv stamptime data file path_file_DATA
         self.dt_data = 0        # curv stamptime DATA/TIME from TERM
         self.data_in_file = []  # ar_file   list of strings from path_file_DATA
