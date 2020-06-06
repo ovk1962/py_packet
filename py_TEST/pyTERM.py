@@ -4,6 +4,12 @@
 #  pyTERM.py
 #
 #=======================================================================
+# TO DO
+# 1. wndw_menu_HIST_FUT / wndw_menu_ACNT
+# 2. write info from file HIST_FUT in file ***
+# 3. clear file HIST_FUT and tables hist_FUT/hist_PACK today
+# 4. wndw_menu_SERV
+#=======================================================================
 import os, sys, math, time, sqlite3, logging
 from datetime import datetime, timezone
 import math
@@ -27,6 +33,7 @@ class Class_CNST():
                 'Ask', 'Buy_qty', 'Bid', 'Sell_qty', 'Fut_go', 'Open_pos' ]
     sP_code, sRest, sVar_mrg, sOpen_prc, sLast_prc, sAsk, sBuy_qty, sBid, sSell_qty, sFut_go, sOpen_pos  = range(11)
     # hist_fut
+    head_data_hst  = ['name', 'val']
     fAsk, fBid = range(2)
     # account
     aBal, aPrf, aGo, aDep = range(4)
@@ -130,14 +137,14 @@ class Class_ACNT():
     def __str__(self):
         return 'dt = {}\n{}\narr={}\n'.format(self.dt, self.ss, str(self.arr))
 #=======================================================================
-class Class_str_FUT():
-    fAsk, fBid = range(2)
-    def __init__(self):
-        self.ind_s, self.dt, self.arr  = 0, '', []
-    def __retr__(self):
-        return 'ind_s = {}, dt = {}{} arr={}'.format(self.ind_s, self.dt, '\n', str(self.arr))
-    def __str__(self):
-        return 'ind_s = {}, dt = {}{} arr={}'.format(self.ind_s, self.dt, '\n', str(self.arr))
+# class Class_str_FUT():
+    # fAsk, fBid = range(2)
+    # def __init__(self):
+        # self.ind_s, self.dt, self.arr  = 0, '', []
+    # def __retr__(self):
+        # return 'ind_s = {}, dt = {}{} arr={}'.format(self.ind_s, self.dt, '\n', str(self.arr))
+    # def __str__(self):
+        # return 'ind_s = {}, dt = {}{} arr={}'.format(self.ind_s, self.dt, '\n', str(self.arr))
 #=======================================================================
 class Class_TRMN():
     #---------------------------  err_status  --------------------------
@@ -161,7 +168,7 @@ class Class_TRMN():
         self.hist_in_file = []  # list of strings from path_file_HIST
         #
         self.data_Class_FUT      = []    # list of Class_FUT()
-        self.data_Class_str_FUT  = []    # list of Class_str_FUT()
+        #self.data_Class_str_FUT  = []    # list of Class_str_FUT()
         self.account = Class_ACNT()  # obj Class_ACCOUNT()
         #
         self.time_1_min = 0
@@ -201,12 +208,6 @@ class Class_TRMN():
     #-------------------------------------------------------------------
     def rd_term_FUT(self):
         # read data FUT from file 'path_file_DATA'----------------------
-        # check -
-        #       file 'file_path_DATA'
-        #       size of file
-        #       time modificated of file
-        #       size of TERM file
-        # update table 'data_FUT' into DB 'db_FUT_tod'------------------
         print('=> _TERM rd_term_FUT')
         self.err_status  = 0
         try:
@@ -259,14 +260,6 @@ class Class_TRMN():
     #-------------------------------------------------------------------
     def rd_term_HST(self):
         # read HIST from file 'path_file_HIST'--------------------------
-        # check -
-        #       file 'path_file_HIST'
-        #       size of file
-        #       read HIST file
-        #       size of TERM file
-        #       MARKET time
-        # update table 'hist_FUT' into DB 'db_HIST_tod'-----------------
-        # unpack table 'hist_FUT' into 'arr_fut_t'    ------------------
         print('=> _TERM rd_term_HST')
         self.err_status  = 0
         try:
@@ -303,27 +296,7 @@ class Class_TRMN():
                 with open(path_hist, 'w') as file_HIST:
                     for item in self.hist_in_file:
                         file_HIST.write(item+'\n')
-            #--- update table 'hist_FUT' -------------------------------
-            # buf_list =[]
-            # pAsk, pBid = range(2)
-            # if len(self.hist_in_file) > 0:
-                # frm = '%d.%m.%Y %H:%M:%S'
-                # for it in self.hist_in_file:
-                    # dtt = datetime.strptime(it.split('|')[0], frm)
-                    # ind_sec  = int(dtt.replace(tzinfo=timezone.utc).timestamp())
-                    # buf_list.append([ind_sec, it])
-            # ok_lmb('rd_term_HST',buf_list[0])
-            # ok_lmb('rd_term_HST',buf_list[-1])
-            # rep = self.db_TODAY.update_tbl('hist_FUT', buf_list, val = ' VALUES(?,?)')
-            # if rep[0] > 0:
-                # err_lmb('rd_term_HST', str(rep[1]))
-                # self.err_status += self.err_update_db   #  can not update info in DB
-                # return
-            # ok_lmb('rd_term_HST','Updated OK')
-            #--- update 'self.arr_fut_t' -------------------------------
-            # self.arr_fut_t = []
-            # self.arr_fut_t = self.unpack_str_fut(buf_list)[1]
-
+            #
         except Exception as ex:
             print('rd_term_HST\n' + str(ex))
             self.err_status += self.err_try
@@ -369,7 +342,6 @@ class Class_GLBL():
 
     def update_tbl_data_hist(self):
         pass
-
 #=======================================================================
 def wndw_menu_DATA_FUT(wndw, _gl):
     os.system('cls')  # on windows
@@ -390,8 +362,34 @@ def wndw_menu_DATA_FUT(wndw, _gl):
                             alternating_row_color = 'lightsteelblue',
                             )],
                         [sg.StatusBar(text= _gl.trm.account.dt, size=(100,1), key='_st_fut_'), sg.Exit()]]
-    wndw = sg.Window('DATA_FUT', location=(250, 200)).Layout(layout_DATA_FUT)
+    wndw = sg.Window(_gl.cfg_soft[Class_CNST.titul][1]+' / DATA_FUT', location=(250, 200)).Layout(layout_DATA_FUT)
     _gl.wndw_menu   = 'DATA_FUT'
+    return wndw
+#=======================================================================
+def wndw_menu_DATA_HIST(wndw, _gl):
+    os.system('cls')  # on windows
+    wndw.Close()
+    if len(_gl.trm.hist_in_file) == 0:
+        mtrx = [['first','',],
+                ['last' ,'',],
+                ['lench','',]]
+    else:
+        mtrx = [['first',_gl.trm.hist_in_file[0].split('|')[0],],
+                ['last' ,_gl.trm.hist_in_file[-1].split('|')[0],],
+                ['lench',len(_gl.trm.hist_in_file),]]
+    layout_DATA_HIST =[  menu_def,
+                        [sg.Table(
+                            values   = mtrx,
+                            num_rows = min(len(mtrx), 30),
+                            headings = Class_CNST.head_data_hst,
+                            key      = '_DATA_HIST_table_',
+                            auto_size_columns     = True,
+                            justification         = 'center',
+                            alternating_row_color = 'lightsteelblue',
+                            )],
+                        [sg.StatusBar(text= _gl.trm.account.dt, size=(30,1), key='_st_hst_'), sg.Exit()]]
+    wndw = sg.Window(_gl.cfg_soft[Class_CNST.titul][1]+' / DATA_HIST', location=(250, 200)).Layout(layout_DATA_HIST)
+    _gl.wndw_menu   = 'DATA_HIST'
     return wndw
 #=======================================================================
 def wndw_menu_CFG_SOFT(wndw, _gl):
@@ -407,10 +405,22 @@ def wndw_menu_CFG_SOFT(wndw, _gl):
                             justification         = 'center',
                             alternating_row_color = 'lightblue',
                             )],
-                        [sg.StatusBar(text= _gl.trm.account.dt, size=(40,1), key='_st_soft_'), sg.Exit()]]
-    wndw = sg.Window('CFG_SOFT', location=(250, 200)).Layout(layout_CFG_SOFT)
+                        [sg.StatusBar(text= _gl.trm.account.dt, size=(35,1), key='_st_soft_'),
+                         sg.Button(' EDIT ', key='-EDIT_CFG_SOFT-'),
+                         sg.Exit()]]
+    wndw = sg.Window(_gl.cfg_soft[Class_CNST.titul][1]+' / CFG_SOFT', location=(250, 200)).Layout(layout_CFG_SOFT)
     _gl.wndw_menu   = 'CFG_SOFT'
     return wndw
+#=======================================================================
+def event_menu_DATA_HIST(ev, val, wndw, _gl):
+    rq = [0,ev]
+    os.system('cls')  # on windows
+    #-------------------------------------------------------------------
+    mtrx = [['first',_gl.trm.hist_in_file[0].split('|')[0],],
+            ['last' ,_gl.trm.hist_in_file[-1].split('|')[0],],
+            ['lench',len(_gl.trm.hist_in_file),]]
+    wndw.FindElement('_DATA_HIST_table_').Update(mtrx)
+    wndw.FindElement('_st_hst_').Update(_gl.stastus_bar)
 #=======================================================================
 def event_menu_DATA_FUT(ev, val, wndw, _gl):
     rq = [0,ev]
@@ -424,8 +434,36 @@ def event_menu_CFG_SOFT(ev, val, wndw, _gl):
     rq = [0,ev]
     os.system('cls')  # on windows
     #-------------------------------------------------------------------
-    #mtrx = [([item.sP_code] + item.arr) for item in _gl.trm.data_Class_FUT]
-    #wndw.FindElement('_CFG_SOFT_table_').Update(mtrx)
+    if ev == '-EDIT_CFG_SOFT-':
+        print('-EDIT_CFG_SOFT-')
+        print(val)
+        if len(val['_CFG_SOFT_table_']) == 0:
+            wrn_lmb('event_menu_CFG_SOFT', s_lmb('You MUST choise ROW'))
+        else:
+            slct = _gl.cfg_soft[val['_CFG_SOFT_table_'][0]]
+            #--- you can change ONLY parametrs from list 'slct_val'  ---------------
+            slct_val = ['titul', 'path_file_DATA', 'path_file_HIST', 'path_file_TXT']
+            if slct[0] in slct_val:
+                for item in slct_val:
+                    if item == slct[0]:
+                        if item == 'titul':
+                            txt = sg.PopupGetText(slct[0], default_text = slct[1])
+                        else:
+                            txt = sg.PopupGetFile( slct[1], title = slct[0])
+                        if txt != None:
+                            _gl.cfg_soft[val['_CFG_SOFT_table_'][0]] = (item, txt)
+                            wndw.FindElement('_CFG_SOFT_table_').Update(_gl.cfg_soft)
+                            #---  update tale 'cfg_SOFT' -----------------------------
+                            rq = _gl.db_TODAY.update_tbl('cfg_SOFT',
+                                                    _gl.cfg_soft, val = ' VALUES(?,?)')
+                            if rq[0] > 0:
+                                err_lmb('event_menu_CFG_SOFT',
+                                    s_lmb('Did not update cfg_SOFT!') + s_lmb(rep[1]))
+                            else:
+                                ok_lmb('event_menu_CFG_SOFT',
+                                    s_lmb('Updated *cfg_SOFT* successfully !'))
+            else:
+                err_lmb(s_lmb(slct[0]) + s_lmb('Sorry, can not change'))
     wndw.FindElement('_st_soft_').Update(_gl.trm.account.dt)
 #=======================================================================
 def main():
@@ -441,9 +479,16 @@ def main():
         #
         _gl.trm.rd_term_FUT()
         if _gl.trm.err_status > 0:
-            err_lmb(s_lmb('Could not read term *data_file*!') + s_lmb(_gl.trm.err_status))
+            err_lmb('main', s_lmb('Could not read term *data_file*!') + s_lmb(_gl.trm.err_status))
         else:
             #ok_lmb('main', s_lmb('Read term *data_file* successfully !'))
+            os.system('cls')  # on windows
+        #
+        _gl.trm.rd_term_HST()
+        if _gl.trm.err_status > 0:
+            err_lmb('main', s_lmb('Could not read term *hist_file*!') + s_lmb(_gl.trm.err_status))
+        else:
+            #ok_lmb('main', s_lmb('Read term *hist_file* successfully !'))
             os.system('cls')  # on windows
         break
     #
@@ -452,7 +497,7 @@ def main():
     #
     while True:     # MAIN cycle  --------------------------------------
         # for sg.Input must be => wndw.Read()  OR  timeout > 10000
-        evn, val = wndw.Read(timeout = 3000)
+        evn, val = wndw.Read(timeout = 6000)
         print('----------------------------------------------')
         print('evn = ', evn, '     val =', val)
         if evn in (None, 'Exit'): break
@@ -476,8 +521,8 @@ def main():
                     _gl.trm.err_rd_term()
                 else:
                     _gl.stastus_bar += '     Got new data HIST'
-
-            #--- update table 'data_FUT' & table 'hist_FUT'
+            #--- If is not errors then:  -------------------------------
+            #--- update tables 'data_FUT' & 'hist_FUT'  ----------------
             if _gl.trm.err_status == 0:
                 buf_arr_1, buf_arr_2 = [], []
                 frm = '%d.%m.%Y %H:%M:%S'
@@ -491,21 +536,30 @@ def main():
                 #
                 rep = _gl.db_TODAY.update_2_tbl('data_FUT', buf_arr_1, 'hist_FUT', buf_arr_2)
                 if rep[0] > 0:
-                    err_lmb('main', s_lmb('Could not update tables ') + s_lmb(rep[1]))
-            #
-            print('_gl.wndw_menu = ', _gl.wndw_menu)
-            if _gl.wndw_menu == 'CFG_SOFT':
-                event_menu_CFG_SOFT(evn, val, wndw, _gl)
-            elif _gl.wndw_menu == 'DATA_FUT':
-                event_menu_DATA_FUT(evn, val, wndw, _gl)
+                    _gl.trm.err_rd_term('main', rep[1], err_log = True)
+                    #err_lmb('main', s_lmb('Could not update tables ') + s_lmb(rep[1]))
+                #
+            #print('_gl.wndw_menu = ', _gl.wndw_menu)
+        if _gl.wndw_menu == 'CFG_SOFT':
+            event_menu_CFG_SOFT(evn, val, wndw, _gl)
+        elif _gl.wndw_menu == 'DATA_FUT':
+            event_menu_DATA_FUT(evn, val, wndw, _gl)
+        elif _gl.wndw_menu == 'DATA_HIST':
+            event_menu_DATA_HIST(evn, val, wndw, _gl)
+        else:      pass
+        #
+        if evn == 'CFG_SOFT':
+            rep = _gl.read_cfg_soft()
+            if rep[0] > 0:
+                err_lmb('main', s_lmb('Could not read table *cfg_soft*!') + s_lmb(rep[1]))
             else:
-                pass
-        elif evn == 'CFG_SOFT':
-            wndw = wndw_menu_CFG_SOFT(wndw, _gl)
+                wndw = wndw_menu_CFG_SOFT(wndw, _gl)
         elif evn == 'DATA_FUT':
             wndw = wndw_menu_DATA_FUT(wndw, _gl)
-        else:
-            pass
+        elif evn == 'DATA_HIST':
+            wndw = wndw_menu_DATA_HIST(wndw, _gl)
+
+        else:      pass
 
 
     #ok_lmb('titul', 'message')
