@@ -926,7 +926,7 @@ def event_menu_CLEAR_TABLES(ev, val, wndw, _gl):
 def main():
     sg.ChangeLookAndFeel('SystemDefault')
     _gl = Class_GL()
-    ok_lmb('main', 'You have init object (_gl) successfully !')
+    #ok_lmb('main', 'You have init object (_gl) successfully !')
     while True:     # INIT  cycle  -------------------------------------
         rep = _gl.read_cfg_soft()
         if rep[0] > 0:
