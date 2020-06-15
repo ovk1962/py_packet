@@ -660,45 +660,49 @@ def main():
         if evn in (None, 'Exit'): break
         #
         if evn == '__TIMEOUT__':
-            #--- Read file DATA  ---------------------------------------
-            _gl.trm.rd_term_FUT()
-            _gl.stastus_bar = _gl.trm.account.dt + 3*' '
-            if _gl.trm.err_status > 0:
-                _gl.stastus_bar += 'Error DATA - ' + str(_gl.trm.err_status)
-                _gl.trm.err_rd_term()
-            else:
-                _gl.trm.cnt_errors = 0
-                _gl.stastus_bar += 'Got new DATA'
-            #--- Read file HIST  ---------------------------------------
-            dtt = datetime.strptime(_gl.trm.account.dt, "%d.%m.%Y %H:%M:%S")
-            if dtt.minute == _gl.trm.time_1_min:
-                _gl.stastus_bar += '     Did not read HIST, it is not time'
-            else:
-                _gl.trm.time_1_min = dtt.minute
-                _gl.trm.rd_term_HST()
+            try:
+                #--- Read file DATA  ---------------------------------------
+                _gl.trm.rd_term_FUT()
+                _gl.stastus_bar = _gl.trm.account.dt + 3*' '
                 if _gl.trm.err_status > 0:
-                    _gl.stastus_bar += '     Error HIST - ' + str(_gl.trm.err_status)
+                    _gl.stastus_bar += 'Error DATA - ' + str(_gl.trm.err_status)
                     _gl.trm.err_rd_term()
                 else:
-                    _gl.stastus_bar += '     Got new HIST'
-            #--- If is not errors READ files then:  --------------------
-            #        update tables 'data_FUT' & 'hist_FUT'
-            if _gl.trm.err_status == 0:
-                buf_arr_1, buf_arr_2 = [], []
-                frm = '%d.%m.%Y %H:%M:%S'
-                #
-                buf_arr_1 = ((j,) for j in _gl.trm.data_in_file)
-                if len(_gl.trm.hist_in_file) > 0:
-                    for it in _gl.trm.hist_in_file:
-                        dtt = datetime.strptime(it.split('|')[0], frm)
-                        ind_sec  = int(dtt.replace(tzinfo=timezone.utc).timestamp())
-                        buf_arr_2.append([ind_sec, it])
-                #
-                rep = _gl.db_TODAY.update_2_tbl('data_FUT', buf_arr_1, 'hist_FUT', buf_arr_2)
-                if rep[0] > 0:
-                    _gl.trm.err_rd_term('main', rep[1], err_log = True)
-                    #err_lmb('main', s_lmb('Could not update tables ') + s_lmb(rep[1]))
-                #
+                    _gl.trm.cnt_errors = 0
+                    _gl.stastus_bar += 'Got new DATA'
+                #--- Read file HIST  ---------------------------------------
+                dtt = datetime.strptime(_gl.trm.account.dt, "%d.%m.%Y %H:%M:%S")
+                if dtt.minute == _gl.trm.time_1_min:
+                    _gl.stastus_bar += '     Did not read HIST, it is not time'
+                else:
+                    _gl.trm.time_1_min = dtt.minute
+                    _gl.trm.rd_term_HST()
+                    if _gl.trm.err_status > 0:
+                        _gl.stastus_bar += '     Error HIST - ' + str(_gl.trm.err_status)
+                        _gl.trm.err_rd_term()
+                    else:
+                        _gl.stastus_bar += '     Got new HIST'
+                #--- If is not errors READ files then:  --------------------
+                #        update tables 'data_FUT' & 'hist_FUT'
+                if _gl.trm.err_status == 0:
+                    buf_arr_1, buf_arr_2 = [], []
+                    frm = '%d.%m.%Y %H:%M:%S'
+                    #
+                    buf_arr_1 = ((j,) for j in _gl.trm.data_in_file)
+                    if len(_gl.trm.hist_in_file) > 0:
+                        for it in _gl.trm.hist_in_file:
+                            dtt = datetime.strptime(it.split('|')[0], frm)
+                            ind_sec  = int(dtt.replace(tzinfo=timezone.utc).timestamp())
+                            buf_arr_2.append([ind_sec, it])
+                    #
+                    rep = _gl.db_TODAY.update_2_tbl('data_FUT', buf_arr_1, 'hist_FUT', buf_arr_2)
+                    if rep[0] > 0:
+                        _gl.trm.err_rd_term('main', rep[1], err_log = True)
+                        #err_lmb('main', s_lmb('Could not update tables ') + s_lmb(rep[1]))
+                    #
+            except Exception as ex:
+                _gl.trm.err_rd_term('main', str(ex), err_log = True)
+
             #print('_gl.wndw_menu = ', _gl.wndw_menu)
         if _gl.wndw_menu == 'CFG_SOFT':
             event_menu_CFG_SOFT(evn, val, wndw, _gl)

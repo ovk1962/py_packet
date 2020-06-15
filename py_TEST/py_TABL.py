@@ -11,7 +11,7 @@
 # 3. clear file HIST_FUT (?) and tables hist_FUT/hist_PACK today +++++++
 # 4. HIST_TABL_TODAY  --------------------------------------------------
 # 5. wndw_menu_SERV  ---------------------------------------------------
-# 6. ... if evn == '__TIMEOUT__': ...  put in block *** TRY: except: ***
+# 6.
 #=======================================================================
 import os, sys, math, time, sqlite3, logging, timeit
 from datetime import datetime, timezone
