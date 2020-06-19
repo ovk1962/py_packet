@@ -27,7 +27,9 @@ ok_lmb  = lambda st,s: sg.PopupOK(s,    title=st, background_color = 'LightGreen
 locationXY = (150, 50)
 menu_def = [sg.Menu([['TABLES',  ['CFG_SOFT',        'CFG_PACK',       '---',
                                   'DATA_ACNT_TABL',  'DATA_FUT_TABL',  '---',
-                                  'HIST_TABL_TODAY', 'HIST_TABL_ARCH', '---',
+                                  'DATA_PACK_TABL',  '---',
+                                  'HIST_TABL_TODAY', '---',
+                                  'HIST_TABL_FUT_ARCH', 'HIST_TABL_PCK_ARCH', '---',
                                   'Exit',],],
                      ['SERVICE', ['RESERV_000','RESERV_001','RESERV_002',],]],
                 tearoff=False, key='-MENU-')]
@@ -41,6 +43,8 @@ class Class_CNST():
     head_cfg_pack  = ['nm', 'koef', 'nul', 'ema', 'go', 'pos', 'neg', 'ratio']
     # arr_fut_a  arr_fut_t
     fAsk, fBid = range(2)
+    # data_pck
+    head_data_pack = ['nm', 'Ask', 'Bid', 'ema', 'ema_r', 'cnt']
     # arr_pck_a  arr_pck_t
     pAsk, pBid, pEMAf, pEMAf_r, pCnt_EMAf_r = range(5)
     # account
@@ -173,7 +177,9 @@ class Class_GLBL():
         self.dt_fut   = []          # list obj FUTs from table 'data_FUT'
         self.account  = Class_ACNT()# obj Class_ACNT()
         #
+        self.len_arr_fut_t = 0
         self.arr_fut_t = []
+        self.arr_pck_t = []
         self.arr_fut_a = []
         self.arr_pck_a = []
         #
@@ -503,7 +509,7 @@ class Class_GLBL():
 
         return [0, arr_pk]
     #-------------------------------------------------------------------
-    def calc_arr_pck(self, last_sz = 2600):
+    def calc_arr_pck(self, last_sz = 100000):
         print('=> _GL calc_arr_pck ')
         try:
             #start_time = datetime.now()
@@ -554,12 +560,40 @@ class Class_GLBL():
             #--- pack hist_PACK archiv  --------------------------------
             rep = self.pack_arr_pck(self.arr_pck_a, self.db_ARCHV, 'hist_PACK')
             if rep[0] > 0:
-                self.err_status = 'calc_arr_pck / Did not update *hist_PACK*!  ' + s_lmb(rep[1])
+                self.err_status = 'calc_arr_pck / Did not update *hist_PACK* db_ARCHV!  ' + s_lmb(rep[1])
                 self.err_DB(err_pop = True, err_log = True)
                 return [5, self.err_status]
         except Exception as ex:
             self.err_status = 'calc_arr_pck / Try error!  ' + str(ex)
             self.err_DB(err_pop = True, err_log = True)
+            return [1, self.err_status]
+
+        return [0, 'ok']
+    #-------------------------------------------------------------------
+    def calc_arr_pck_today(self):
+        print('=> _GL calc_arr_pck_today ')
+        try:
+            rep = self.clc_ASK_BID(self.arr_fut_t)
+            if rep[0] > 0:
+                self.err_status = 'calc_arr_pck_today / Did not CALC ASK_BID *hist_PACK* today!  ' + s_lmb(rep[1])
+                self.err_DB(err_log = True)
+                return [2, self.err_status]
+            self.arr_pck_t = rep[1]
+
+            rep = self.clc_EMA(self.arr_pck_t, self.arr_pck_a[-1])
+            if rep[0] > 0:
+                self.err_status = 'calc_arr_pck_today / Did not CALC EMA *hist_PACK* today!  ' + s_lmb(rep[1])
+                self.err_DB(err_log = True)
+                return [3, self.err_status]
+            self.arr_pck_t = rep[1][1:]
+
+            # pck_t = self.pack_arr_pck(self.arr_pck_t, self.db_TODAY, 'hist_PACK')
+            # if pck_t[0] > 0:
+            #     return [7, 'Problem of pack_arr_pck!\n' + pck_t[1]]
+
+        except Exception as ex:
+            self.err_status = 'calc_arr_pck_today / Try error!  ' + str(ex)
+            self.err_DB(err_log = True)
             return [1, self.err_status]
 
         return [0, 'ok']
@@ -577,7 +611,8 @@ def wndw_menu_CFG_SOFT(wndw, _gl):
                             justification         = 'center',
                             alternating_row_color = 'thistle',
                             )],
-                        [sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(42,1), key='_st_bar_'),
+                        [sg.Button(' READ ', key='-READ_CFG_SOFT-'),
+                         sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(35,1), key='_st_bar_'),
                          sg.Exit()]]
     wndw = sg.Window('DB_TABL / CFG_SOFT', location=locationXY).Layout(layout_CFG_SOFT)
     _gl.wndw_menu   = 'CFG_SOFT'
@@ -600,17 +635,46 @@ def wndw_menu_CFG_PACK(wndw, _gl):
                             justification         = 'center',
                             alternating_row_color = 'coral',
                             )],
-                        [sg.Button(' EDIT ', key='-EDIT_CFG_PACK-'),
+                        [sg.Button(' READ ', key='-READ_CFG_PACK-'),
+                         sg.Button(' EDIT ', key='-EDIT_CFG_PACK-'),
                          sg.Button(' ADD  ', key='-ADD_CFG_PACK-' ),
                          sg.Button(' DEL  ', key='-DEL_CFG_PACK-' ),
                          sg.Button(' SAVE ', key='-SAVE_CFG_PACK-'),
-                         #sg.T(110*' '),
-                         sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(65,1), key='_st_bar_'),
-                         sg.Exit()]]
-                        #[sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(42,1), key='_st_bar_'),
-                        # sg.Exit()]]
+                         sg.T(110*' '),      sg.Exit()],
+                        [sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(98,1), key='_st_bar_')],]
     wndw = sg.Window('DB_TABL / CFG_PACK', location=locationXY).Layout(layout_CFG_PACK)
     _gl.wndw_menu   = 'CFG_PACK'
+    return wndw
+#=======================================================================
+def wndw_menu_DATA_PACK_TABL(wndw, _gl):
+    os.system('cls')  # on windows
+    wndw.Close()
+    mtrx = []
+    if len(_gl.arr_pck_t) > 0:
+        txt_dt = _gl.arr_pck_t[-1].dt
+        for i, item in enumerate(_gl.arr_pck_t[-1].arr):
+            mtrx.append( [_gl.cfg_pck[i][Class_CNST.kNm] ] + item)
+    else:
+        txt_dt = _gl.arr_pck_a[-1].dt
+        for i, item in enumerate(_gl.arr_pck_a[-1].arr):
+            mtrx.append( [_gl.cfg_pck[i][Class_CNST.kNm] ] + item)
+    #ok_lmb('test', mtrx)
+    layout_DATA_PACK_TABL =[  menu_def,
+                           [sg.T(txt_dt, key='-READ_DATA_txt-')],
+                           [sg.Table(
+                            values   = mtrx,
+                            num_rows = min(len(mtrx), 30),
+                            headings = Class_CNST.head_data_pack,
+                            key      = '_DATA_PACK_table_',
+                            auto_size_columns     = True,
+                            justification         = 'center',
+                            alternating_row_color = 'plum',
+                            )],
+                        [sg.Button(' READ ', key='-READ_DATA_PACK-'),
+                         sg.T(83*' '),      sg.Exit()],
+                        [sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(55,1), key='_st_bar_')],]
+    wndw = sg.Window('DB_TABL / DATA_PACK_TABL', location=locationXY).Layout(layout_DATA_PACK_TABL)
+    _gl.wndw_menu   = 'DATA_PACK_TABL'
     return wndw
 #=======================================================================
 def wndw_menu_DATA_ACNT_TABL(wndw, _gl):
@@ -632,7 +696,9 @@ def wndw_menu_DATA_ACNT_TABL(wndw, _gl):
                             justification         = 'center',
                             alternating_row_color = 'lavender',
                             )],
-                        [sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(40,1), key='_st_bar_'), sg.Exit()]]
+                        [sg.Button(' READ ', key='-READ_DATA_ACNT_TABL-'),
+                         sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(32,1), key='_st_bar_'),
+                         sg.Exit()]]
     wndw = sg.Window('DB_TABL / DATA_ACNT_TABL', location=locationXY).Layout(layout_DATA_ACNT_TABL)
     _gl.wndw_menu   = 'DATA_ACNT_TABL'
     return wndw
@@ -655,12 +721,14 @@ def wndw_menu_DATA_FUT_TABL(wndw, _gl):
                             justification         = 'center',
                             alternating_row_color = 'lightsteelblue',
                             )],
-                        [sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(100,1), key='_st_bar_'), sg.Exit()]]
+                        [sg.Button(' READ ', key='-READ_DATA_FUT_TABL-'),
+                         sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(97,1), key='_st_bar_'),
+                         sg.Exit()]]
     wndw = sg.Window('DB_TABL / DATA_FUT_TABL', location=locationXY).Layout(layout_DATA_FUT_TABL)
     _gl.wndw_menu   = 'DATA_FUT_TABL'
     return wndw
 #=======================================================================
-def wndw_menu_HIST_TABL_ARCH(wndw, _gl):
+def wndw_menu_HIST_TABL_FUT_ARCH(wndw, _gl):
     os.system('cls')  # on windows
     wndw.Close()
     mtrx = [['first' ,34*'-',], ['second',34*'-',], ['------',34*'-',],
@@ -671,7 +739,7 @@ def wndw_menu_HIST_TABL_ARCH(wndw, _gl):
                 ['------',34*'-',],
                 ['last' , _gl.arr_fut_a[-1].dt,], ['lench', len(_gl.arr_fut_a),]]
 
-    layout_HIST_TABL_ARCH =[  menu_def,
+    layout_HIST_TABL_FUT_ARCH =[  menu_def,
                         [sg.T('Table HIST FUT ARCHIV => \\DB\\db_ARCH.sqlite')],
                         [sg.Table(
                             values   = mtrx,
@@ -685,8 +753,37 @@ def wndw_menu_HIST_TABL_ARCH(wndw, _gl):
                         [sg.Button('APPEND', key='-APPEND_TXT_in_ARCH-'),
                          sg.T(45*' '),                  sg.Exit()],
                         [sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(37,1), key='_st_bar_'), ]]
-    wndw = sg.Window('DB_TABL / HIST_TABL_FUT_ARCH', location=locationXY).Layout(layout_HIST_TABL_ARCH)
-    _gl.wndw_menu   = 'HIST_TABL_ARCH'
+    wndw = sg.Window('DB_TABL / HIST_TABL_FUT_ARCH', location=locationXY).Layout(layout_HIST_TABL_FUT_ARCH)
+    _gl.wndw_menu   = 'HIST_TABL_FUT_ARCH'
+    return wndw
+#=======================================================================
+def wndw_menu_HIST_TABL_PCK_ARCH(wndw, _gl):
+    os.system('cls')  # on windows
+    wndw.Close()
+    mtrx = [['first' ,34*'-',], ['second',34*'-',], ['------',34*'-',],
+            ['last'  ,34*'-',], ['lench' ,34*'-',]]
+    mtrx_db = mtrx[:]
+    if len(_gl.arr_pck_a) > 0:
+        mtrx = [['first', _gl.arr_pck_a[0].dt,],  ['second',_gl.arr_pck_a[1].dt,],
+                ['------',34*'-',],
+                ['last' , _gl.arr_pck_a[-1].dt,], ['lench', len(_gl.arr_pck_a),]]
+
+    layout_HIST_TABL_PCK_ARCH =[  menu_def,
+                        [sg.T('Table HIST PACK ARCHIV => \\DB\\db_ARCH.sqlite')],
+                        [sg.Table(
+                            values   = mtrx,
+                            num_rows = min(len(mtrx), 30),
+                            headings = Class_CNST.head_data_hst,
+                            key      = '_HIST_TABL_PCK_ARCH_table_',
+                            auto_size_columns     = True,
+                            justification         = 'center',
+                            alternating_row_color = 'darkgrey',
+                            )],
+                        [sg.Button('CALC', key='-CALC_UPDATE_PCK_ARCH-'),
+                         sg.T(49*' '),  sg.Exit()],
+                        [sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(37,1), key='_st_bar_'), ]]
+    wndw = sg.Window('DB_TABL / HIST_TABL_PCK_ARCH', location=locationXY).Layout(layout_HIST_TABL_PCK_ARCH)
+    _gl.wndw_menu   = 'HIST_TABL_PCK_ARCH'
     return wndw
 #=======================================================================
 def wndw_menu_HIST_TABL_TODAY(wndw, _gl):
@@ -699,7 +796,6 @@ def wndw_menu_HIST_TABL_TODAY(wndw, _gl):
         mtrx = [['first', _gl.arr_fut_t[0].dt,],  ['second',_gl.arr_fut_t[1].dt,],
                 ['------',34*'-',],
                 ['last' , _gl.arr_fut_t[-1].dt,], ['lench', len(_gl.arr_fut_t),]]
-
     layout_HIST_TABL_TODAY =[  menu_def,
                         [sg.T('Table HIST FUT TODAY => \\DB\\db_TODAY.sqlite')],
                         [sg.Table(
@@ -711,7 +807,7 @@ def wndw_menu_HIST_TABL_TODAY(wndw, _gl):
                             justification         = 'center',
                             alternating_row_color = 'darkgrey',
                             )],
-                        [sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(40,1), key='_st_bar_'), sg.Exit()]]
+                        [sg.StatusBar(text= _gl.account.dt + '  wait ...', size=(30,1), key='_st_bar_'), sg.Exit()]]
     wndw = sg.Window('DB_TABL / HIST_TABL_FUT_TODAY', location=locationXY).Layout(layout_HIST_TABL_TODAY)
     _gl.wndw_menu   = 'HIST_TABL_TODAY'
     return wndw
@@ -720,11 +816,13 @@ def event_menu_CFG_SOFT(ev, val, wndw, _gl):
     rq = [0,ev]
     #os.system('cls')  # on windows
     #-------------------------------------------------------------------
-    rep = _gl.read_unpack_TODAY()
-    if rep[0] > 0:
-        err_lmb('event_menu_CFG_SOFT', s_lmb('Errors in read_unpack_TODAY!') + s_lmb(rep[1]))
-        return
-    #-------------------------------------------------------------------
+    if ev == '-READ_CFG_SOFT-':
+        print('-READ_CFG_SOFT-')
+        rep = _gl.read_unpack_TODAY()
+        if rep[0] > 0:
+            err_lmb('event_menu_CFG_SOFT', s_lmb('Errors in read_unpack_TODAY!') + s_lmb(rep[1]))
+            return
+    # #-------------------------------------------------------------------
     wndw.FindElement('_CFG_SOFT_table_').Update(_gl.cfg_soft)
     if 'wait' in _gl.stastus_bar:
         wndw.FindElement('_st_bar_').Update(_gl.stastus_bar, background_color = 'Gold')
@@ -735,10 +833,12 @@ def event_menu_CFG_PACK(ev, val, wndw, _gl):
     rq = [0,ev]
     #os.system('cls')  # on windows
     #-------------------------------------------------------------------
-    rep = _gl.read_unpack_TODAY()
-    if rep[0] > 0:
-        err_lmb('event_menu_CFG_PACK', s_lmb('Errors in read_unpack_TODAY!') + s_lmb(rep[1]))
-        return
+    if ev == '-READ_CFG_PACK-':
+        print('-READ_CFG_PACK-')
+        rep = _gl.read_unpack_TODAY()
+        if rep[0] > 0:
+            err_lmb('event_menu_CFG_PACK', s_lmb('Errors in read_unpack_TODAY!') + s_lmb(rep[1]))
+            return
     #-------------------------------------------------------------------
     # You must calc_cfg_pack After EDIT/CHANGE parametrs PACKET
     #-------------------------------------------------------------------
@@ -822,14 +922,44 @@ def event_menu_CFG_PACK(ev, val, wndw, _gl):
     else:
         wndw.FindElement('_st_bar_').Update(_gl.stastus_bar, background_color = 'LightGreen')
 #=======================================================================
+def event_menu_DATA_PACK_TABL(ev, val, wndw, _gl):
+    rq = [0,ev]
+    #os.system('cls')  # on windows
+    #-------------------------------------------------------------------
+    if ev == '-READ_DATA_PACK-':
+        print('-READ_DATA_PACK-')
+        rep = _gl.read_unpack_TODAY()
+        if rep[0] > 0:
+            err_lmb('event_menu_DATA_PACK_TABL', s_lmb('Errors in read_unpack_TODAY!') + s_lmb(rep[1]))
+            return
+    #-------------------------------------------------------------------
+    txt_dt, mtrx = '', []
+    if len(_gl.arr_pck_t) > 0:
+        txt_dt = _gl.arr_pck_t[-1].dt
+        for i, item in enumerate(_gl.arr_pck_t[-1].arr):
+            mtrx.append( [_gl.cfg_pck[i][Class_CNST.kNm] ] + item)
+    else:
+        txt_dt = _gl.arr_pck_a[-1].dt
+        for i, item in enumerate(_gl.arr_pck_a[-1].arr):
+            mtrx.append( [_gl.cfg_pck[i][Class_CNST.kNm] ] + item)
+    wndw.FindElement('_DATA_PACK_table_').Update(mtrx)
+    wndw.FindElement('-READ_DATA_txt-').Update(txt_dt)
+    #-------------------------------------------------------------------
+    if 'wait' in _gl.stastus_bar:
+        wndw.FindElement('_st_bar_').Update(_gl.stastus_bar, background_color = 'Gold')
+    else:
+        wndw.FindElement('_st_bar_').Update(_gl.stastus_bar, background_color = 'LightGreen')
+#=======================================================================
 def event_menu_DATA_ACNT_TABL(ev, val, wndw, _gl):
     rq = [0,ev]
     #os.system('cls')  # on windows
     #-------------------------------------------------------------------
-    rep = _gl.read_unpack_TODAY()
-    if rep[0] > 0:
-        err_lmb('event_menu_DATA_ACNT_TABL', s_lmb('Errors in read_unpack_TODAY!') + s_lmb(rep[1]))
-        return
+    if ev == '-READ_DATA_ACNT_TABL-':
+        print('-READ_DATA_ACNT_TABL-')
+        rep = _gl.read_unpack_TODAY()
+        if rep[0] > 0:
+            err_lmb('event_menu_DATA_ACNT_TABL', s_lmb('Errors in read_unpack_TODAY!') + s_lmb(rep[1]))
+            return
     #-------------------------------------------------------------------
     mtrx = [['Date / Time  ',_gl.account.dt,],
             ['BALANCE      ',str(_gl.account.arr[0]),],
@@ -846,10 +976,12 @@ def event_menu_DATA_FUT_TABL(ev, val, wndw, _gl):
     rq = [0,ev]
     #os.system('cls')  # on windows
     #-------------------------------------------------------------------
-    rep = _gl.read_unpack_TODAY()
-    if rep[0] > 0:
-        err_lmb('event_menu_DATA_FUT_TABL', s_lmb('Errors in read_unpack_TODAY!') + s_lmb(rep[1]))
-        return
+    if ev == '-READ_DATA_FUT_TABL-':
+        print('-READ_DATA_FUT_TABL-')
+        rep = _gl.read_unpack_TODAY()
+        if rep[0] > 0:
+            err_lmb('event_menu_DATA_FUT_TABL', s_lmb('Errors in read_unpack_TODAY!') + s_lmb(rep[1]))
+            return
     #-------------------------------------------------------------------
     mtrx = [([item.sP_code] + item.arr) for item in _gl.dt_fut]
     wndw.FindElement('_DATA_FUT_TABL_table_').Update(mtrx)
@@ -858,7 +990,7 @@ def event_menu_DATA_FUT_TABL(ev, val, wndw, _gl):
     else:
         wndw.FindElement('_st_bar_').Update(_gl.stastus_bar, background_color = 'LightGreen')
 #=======================================================================
-def event_menu_HIST_TABL_ARCH(ev, val, wndw, _gl):
+def event_menu_HIST_TABL_FUT_ARCH(ev, val, wndw, _gl):
     rq = [0,ev]
     #os.system('cls')  # on windows
     #-------------------------------------------------------------------
@@ -891,8 +1023,26 @@ def event_menu_HIST_TABL_ARCH(ev, val, wndw, _gl):
                 rep = _gl.db_ARCHV.update_tbl('hist_FUT', buf_hist_arch, val = ' VALUES(?,?)', p_append = True)
 
             except Exception as ex:
-                err_lmb('event_menu_HIST_TABL_ARCH', s_lmb('Error  TRY!') + str(ex))
+                err_lmb('event_menu_HIST_TABL_FUT_ARCH', s_lmb('Error  TRY!') + str(ex))
                 return
+    #-------------------------------------------------------------------
+    if 'wait' in _gl.stastus_bar:
+        wndw.FindElement('_st_bar_').Update(_gl.stastus_bar, background_color = 'Gold')
+    else:
+        wndw.FindElement('_st_bar_').Update(_gl.stastus_bar, background_color = 'LightGreen')
+#=======================================================================
+def event_menu_HIST_TABL_PCK_ARCH(ev, val, wndw, _gl):
+    rq = [0,ev]
+    #os.system('cls')  # on windows
+    #-------------------------------------------------------------------
+    if ev == '-CALC_UPDATE_PCK_ARCH-':
+        print('-CALC_UPDATE_PCK_ARCH-')
+        rep = _gl.calc_arr_pck() # last_sz = 2600 => 5*520 per Week
+        if rep[0] > 0:  return 0
+        mtrx = [['first', _gl.arr_pck_a[0].dt,],  ['second',_gl.arr_pck_a[1].dt,],
+                ['------',34*'-',],
+                ['last' , _gl.arr_pck_a[-1].dt,], ['lench', len(_gl.arr_pck_a),]]
+        wndw.FindElement('_HIST_TABL_PCK_ARCH_table_').Update(mtrx)
     #-------------------------------------------------------------------
     if 'wait' in _gl.stastus_bar:
         wndw.FindElement('_st_bar_').Update(_gl.stastus_bar, background_color = 'Gold')
@@ -902,6 +1052,17 @@ def event_menu_HIST_TABL_ARCH(ev, val, wndw, _gl):
 def event_menu_HIST_TABL_TODAY(ev, val, wndw, _gl):
     rq = [0,ev]
     #os.system('cls')  # on windows
+    #-------------------------------------------------------------------
+    mtrx = [['first' ,34*'-',], ['second',34*'-',], ['------',34*'-',],
+            ['last'  ,34*'-',], ['lench' ,34*'-',]]
+    mtrx_db = mtrx[:]
+    if len(_gl.arr_fut_t) > 0:
+        mtrx = [['first', _gl.arr_fut_t[0].dt,],  ['second',_gl.arr_fut_t[1].dt,],
+                ['------',34*'-',],
+                ['last' , _gl.arr_fut_t[-1].dt,], ['lench', len(_gl.arr_fut_t),]]
+    else:
+        mtrx[-1] = ['lench', len(_gl.arr_fut_t),]
+        wndw.FindElement('_HIST_TABL_FUT_TODAY_table_').Update(mtrx)
     #-------------------------------------------------------------------
     if 'wait' in _gl.stastus_bar:
         wndw.FindElement('_st_bar_').Update(_gl.stastus_bar, background_color = 'Gold')
@@ -922,8 +1083,47 @@ def main():
             # ok_lmb('main', s_lmb('Read & unpack ALL tables TODAY successfully !'))
             os.system('cls')  # on windows
         #---------------------------------------------------------------
-        rep = _gl.calc_arr_pck()
-        if rep[0] > 0:  return 0
+        rep = _gl.db_ARCHV.read_tbl('hist_FUT')
+        if rep[0] > 0:
+            err_lmb('main', s_lmb('Not read db_ARCHV *hist_FUT*!') + s_lmb(rep[1]))
+            return 0
+        #--- Attention !!! ---------------------------------------------
+        # On start just read table *hist_FUT* from db_ARCHV,
+        # BUT unpack ONLY last 2600 strings. It's hist for last 5 days!!!
+        #---------------------------------------------------------------
+        rep = _gl.unpack_str_fut(rep[1][-2600:])
+        if rep[0] > 0:
+            err_lmb('main', s_lmb('Did not unpack *hist_FUT* from ARCH!') + s_lmb(rep[1]))
+            return 0
+        _gl.arr_fut_a = rep[1]
+        # _gl.prn_arr('arr_fut_a', _gl.arr_fut_a)
+        # ok_lmb('main', s_lmb('Read & unpack *hist_FUT* successfully !'))
+        os.system('cls')  # on windows
+        #---------------------------------------------------------------
+        rep = _gl.db_ARCHV.read_tbl('hist_PACK')
+        if rep[0] > 0:
+            err_lmb('main', s_lmb('Not read db_ARCHV *hist_PACK*!') + s_lmb(rep[1]))
+            return 0
+        #--- Speed of Unpack is about 1500 str/per 1 sec ---------------
+        rep = _gl.unpack_str_pck(rep[1][-2600:])
+        if rep[0] > 0:
+            err_lmb('main', s_lmb('Error unpack_str_pck!') + s_lmb(rep[1]))
+            return 0
+        _gl.arr_pck_a = rep[1]
+        # _gl.prn_arr('arr_pck_a', _gl.arr_pck_a)
+        # ok_lmb('main', s_lmb('Read & unpack *hist_PACK* from db_ARCHV successfully !'))
+        os.system('cls')  # on windows
+        #---------------------------------------------------------------
+        rep = _gl.calc_arr_pck_today()
+        if rep[0] > 0:
+            err_lmb('main', s_lmb('Not calc *hist_PACK* today!') + s_lmb(rep[1]))
+            return 0
+        # _gl.prn_arr('arr_pck_t', _gl.arr_pck_t)
+        # ok_lmb('main', s_lmb('Calc *hist_PACK* today successfully !'))
+        """
+        #---------------------------------------------------------------
+        # rep = _gl.calc_arr_pck(last_sz = 2500)
+        # if rep[0] > 0:  return 0
         #---------------------------------------------------------------
         # rep = _gl.db_ARCHV.read_tbl('hist_PACK')
         # if rep[0] > 0:
@@ -990,10 +1190,11 @@ def main():
         # ok_lmb('main', s_lmb('Calc PACK *arr_pck* successfully !'))
         # os.system('cls')  # on windows
         # #---------------------------------------------------------------
+        """
         break
     #
     wndw = sg.Window('START').Layout([menu_def, [sg.Exit()]])
-    wndw = wndw_menu_DATA_ACNT_TABL(wndw, _gl)
+    wndw = wndw_menu_DATA_PACK_TABL(wndw, _gl)
     #
     while True:     # MAIN cycle  --------------------------------------
         # for sg.Input must be => wndw.Read()  OR  timeout > 10000
@@ -1015,6 +1216,14 @@ def main():
                     _gl.stastus_bar = _gl.account.dt + 3*' ' + 'error ...'
                 else:
                     _gl.stastus_bar = _gl.account.dt + 3*' ' + 'Got new DATA'
+                    if _gl.len_arr_fut_t != len(_gl.arr_fut_t):
+                        _gl.len_arr_fut_t = len(_gl.arr_fut_t)
+                        rep = _gl.calc_arr_pck_today()
+                        if rep[0] == 0:
+                            rep = _gl.pack_arr_pck(_gl.arr_pck_t, _gl.db_TODAY, 'hist_PACK')
+                            if rep[0] > 0:
+                                _gl.err_status = 'calc_arr_pck / Did not update *hist_PACK* db_TODAY!  ' + s_lmb(rep[1])
+                                _gl.err_DB(err_log = True)
             else:
                 _gl.stastus_bar = _gl.account.dt + 3*' ' + 'wait ...'
 
@@ -1027,10 +1236,14 @@ def main():
             event_menu_DATA_ACNT_TABL(evn, val, wndw, _gl)
         elif _gl.wndw_menu == 'DATA_FUT_TABL':
             event_menu_DATA_FUT_TABL(evn, val, wndw, _gl)
+        elif _gl.wndw_menu == 'DATA_PACK_TABL':
+            event_menu_DATA_PACK_TABL(evn, val, wndw, _gl)
         elif _gl.wndw_menu == 'HIST_TABL_TODAY':
             event_menu_HIST_TABL_TODAY(evn, val, wndw, _gl)
-        elif _gl.wndw_menu == 'HIST_TABL_ARCH':
-            event_menu_HIST_TABL_ARCH(evn, val, wndw, _gl)
+        elif _gl.wndw_menu == 'HIST_TABL_FUT_ARCH':
+            event_menu_HIST_TABL_FUT_ARCH(evn, val, wndw, _gl)
+        elif _gl.wndw_menu == 'HIST_TABL_PCK_ARCH':
+            event_menu_HIST_TABL_PCK_ARCH(evn, val, wndw, _gl)
         else:      pass
         #
         if evn == 'CFG_SOFT':
@@ -1041,10 +1254,14 @@ def main():
             wndw = wndw_menu_DATA_ACNT_TABL(wndw, _gl)
         elif evn == 'DATA_FUT_TABL':
             wndw = wndw_menu_DATA_FUT_TABL(wndw, _gl)
+        elif evn == 'DATA_PACK_TABL':
+            wndw = wndw_menu_DATA_PACK_TABL(wndw, _gl)
         elif evn == 'HIST_TABL_TODAY':
             wndw = wndw_menu_HIST_TABL_TODAY(wndw, _gl)
-        elif evn == 'HIST_TABL_ARCH':
-            wndw = wndw_menu_HIST_TABL_ARCH(wndw, _gl)
+        elif evn == 'HIST_TABL_FUT_ARCH':
+            wndw = wndw_menu_HIST_TABL_FUT_ARCH(wndw, _gl)
+        elif evn == 'HIST_TABL_PCK_ARCH':
+            wndw = wndw_menu_HIST_TABL_PCK_ARCH(wndw, _gl)
         else:      pass
     return 0
 

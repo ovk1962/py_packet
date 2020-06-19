@@ -607,16 +607,16 @@ def event_menu_DATA_ACNT(ev, val, wndw, _gl):
     os.system('cls')  # on windows
     #-------------------------------------------------------------------
     mtrx = [['Date / Time  ',_gl.trm.account.dt,],
-            ['BALANCE      ',str(_gl.trm.account.arr[0]),],
-            ['PROFIT / LOSS',str(_gl.trm.account.arr[1]),],
-            ['GO           ',str(_gl.trm.account.arr[2]),],
-            ['DEPOSIT      ',str(_gl.trm.account.arr[3]),]]
+            ['BALANCE      ',str(_gl.trm.account.arr[Class_CNST.aBal]),],
+            ['PROFIT / LOSS',str(_gl.trm.account.arr[Class_CNST.aPrf]),],
+            ['GO           ',str(_gl.trm.account.arr[Class_CNST.aGo]),],
+            ['DEPOSIT      ',str(_gl.trm.account.arr[Class_CNST.aDep]),]]
     wndw.FindElement('_DATA_ACNT_table_').Update(mtrx)
     if _gl.trm.cnt_errors < 2:
         wndw.FindElement('_st_acnt_').Update(_gl.stastus_bar, background_color = 'LightGreen')
     else:
         wndw.FindElement('_st_acnt_').Update(_gl.stastus_bar, background_color = 'Pink')
-    prf = _gl.trm.account.arr[1]
+    prf = _gl.trm.account.arr[Class_CNST.aPrf]
     if prf > 0:
         wndw.FindElement('_txt_acnt_').Update(str(int(prf)), text_color = 'Green')
     else:
