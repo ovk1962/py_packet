@@ -22,7 +22,7 @@ wrn_lmb = lambda st,s: sg.PopupOK(s,    title=st, background_color = 'Gold',    
 ok_lmb  = lambda st,s: sg.PopupOK(s,    title=st, background_color = 'LightGreen', no_titlebar = False, keep_on_top=True)
 #
 locationXY = (300, 50)
-menu_def = [sg.Menu([['TABLES',  ['CFG_SOFT', 'DATA_ACNT', '---',
+menu_def = [sg.Menu([['TABLES',  ['CFG_SOFT', 'DATA_ACNT', 'DATA_PROFIT', '---',
                                   'DATA_FUT_FILE', 'DATA_HIST_FILE', '---',
                                   'Exit',],],
                      ['SERVICE', ['SAVE_HIST_FILE', 'CLR_HIST_TBL',],]],
@@ -372,7 +372,7 @@ def wndw_menu_DATA_ACNT(wndw, _gl):
             ['GO           ',str(_gl.trm.account.arr[2]),],
             ['DEPOSIT      ',str(_gl.trm.account.arr[3]),]]
     layout_DATA_ACNT =[  menu_def,
-                        [sg.Text('0000.00', font= 'ANY 60', key='_txt_acnt_', justification = 'center')],
+                        #[sg.Text('0000.00', font= 'ANY 60', key='_txt_acnt_', justification = 'center')],
                         [sg.Table(
                             values   = mtrx,
                             num_rows = min(len(mtrx), 30),
@@ -385,6 +385,16 @@ def wndw_menu_DATA_ACNT(wndw, _gl):
                         [sg.StatusBar(text= _gl.trm.account.dt + '  wait ...', size=(40,1), key='_st_acnt_'), sg.Exit()]]
     wndw = sg.Window(_gl.cfg_soft[Class_CNST.titul][1]+' / DATA_ACNT', location=locationXY).Layout(layout_DATA_ACNT)
     _gl.wndw_menu   = 'DATA_ACNT'
+    return wndw
+#=======================================================================
+def wndw_menu_DATA_PROFIT(wndw, _gl):
+    os.system('cls')  # on windows
+    wndw.Close()
+    layout_DATA_PROFIT =[  menu_def,
+                        [sg.Text('0000.00', font= 'ANY 60', key='_txt_DATA_PROFIT_', justification = 'center')],
+                        [sg.StatusBar(text= _gl.trm.account.dt + '  wait ...', size=(40,1), key='_st_acnt_'), sg.Exit()]]
+    wndw = sg.Window(_gl.cfg_soft[Class_CNST.titul][1]+' / DATA_PROFIT', location=locationXY).Layout(layout_DATA_PROFIT)
+    _gl.wndw_menu   = 'DATA_PROFIT'
     return wndw
 #=======================================================================
 def wndw_menu_DATA_HIST_FILE(wndw, _gl):
@@ -629,11 +639,24 @@ def event_menu_DATA_ACNT(ev, val, wndw, _gl):
     else:
         wndw.FindElement('_st_acnt_').Update(_gl.stastus_bar, background_color = 'Pink')
     prf = _gl.trm.account.arr[Class_CNST.aPrf]
-    if prf > 0:
-        wndw.FindElement('_txt_acnt_').Update(str(int(prf)), text_color = 'Green')
+    # if prf > 0:
+        # wndw.FindElement('_txt_acnt_').Update(str(int(prf)), text_color = 'Green')
+    # else:
+        # wndw.FindElement('_txt_acnt_').Update(str(int(prf)), text_color = 'Red')
+#=======================================================================
+def event_menu_DATA_PROFIT(ev, val, wndw, _gl):
+    rq = [0,ev]
+    os.system('cls')  # on windows
+    #-------------------------------------------------------------------
+    if _gl.trm.cnt_errors < 2:
+        wndw.FindElement('_st_acnt_').Update(_gl.stastus_bar, background_color = 'LightGreen')
     else:
-        wndw.FindElement('_txt_acnt_').Update(str(int(prf)), text_color = 'Red')
-
+        wndw.FindElement('_st_acnt_').Update(_gl.stastus_bar, background_color = 'Pink')
+    prf = _gl.trm.account.arr[Class_CNST.aPrf]
+    if prf > 0:
+        wndw.FindElement('_txt_DATA_PROFIT_').Update(str(int(prf)), text_color = 'Green')
+    else:
+        wndw.FindElement('_txt_DATA_PROFIT_').Update(str(int(prf)), text_color = 'Red')
 #=======================================================================
 def main():
     # init -------------------------------------------------------------
@@ -724,6 +747,9 @@ def main():
             event_menu_DATA_HIST_FILE(evn, val, wndw, _gl)
         elif _gl.wndw_menu == 'DATA_ACNT':
             event_menu_DATA_ACNT(evn, val, wndw, _gl)
+        elif _gl.wndw_menu == 'DATA_PROFIT':
+            event_menu_DATA_PROFIT(evn, val, wndw, _gl)
+
         else:      pass
         #
         if evn == 'CFG_SOFT':
@@ -734,7 +760,8 @@ def main():
             wndw = wndw_menu_DATA_HIST_FILE(wndw, _gl)
         elif evn == 'DATA_ACNT':
             wndw = wndw_menu_DATA_ACNT(wndw, _gl)
-
+        elif evn == 'DATA_PROFIT':
+            wndw = wndw_menu_DATA_PROFIT(wndw, _gl)
         else:      pass
 
 
