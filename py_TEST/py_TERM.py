@@ -454,7 +454,7 @@ def wndw_menu_CFG_SOFT(wndw, _gl):
                             justification         = 'center',
                             alternating_row_color = 'thistle',
                             )],
-                        [sg.Button('___EDIT___', key='-EDIT_CFG_SOFT-'),
+                        [sg.Button('___EDIT___', key='-EDIT_CFG_SOFT-'), sg.T(28*' '),
                          sg.Button('__SAVE__'  , key='-SAVE_HIST_FILE-'),
                          sg.Button('__CLEAR__' , key='-CLEAR_HIST_FILE-')],
                         [sg.StatusBar(text= _gl.trm.account.dt + '  wait ...', size=(42,1), key='_st_soft_'),
@@ -638,11 +638,6 @@ def event_menu_DATA_ACNT(ev, val, wndw, _gl):
         wndw.FindElement('_st_acnt_').Update(_gl.stastus_bar, background_color = 'LightGreen')
     else:
         wndw.FindElement('_st_acnt_').Update(_gl.stastus_bar, background_color = 'Pink')
-    prf = _gl.trm.account.arr[Class_CNST.aPrf]
-    # if prf > 0:
-        # wndw.FindElement('_txt_acnt_').Update(str(int(prf)), text_color = 'Green')
-    # else:
-        # wndw.FindElement('_txt_acnt_').Update(str(int(prf)), text_color = 'Red')
 #=======================================================================
 def event_menu_DATA_PROFIT(ev, val, wndw, _gl):
     rq = [0,ev]
