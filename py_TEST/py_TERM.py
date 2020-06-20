@@ -509,7 +509,13 @@ def event_menu_DATA_HIST_FILE(ev, val, wndw, _gl):
                 ['------','-----------------------------------',],
                 ['last' ,_gl.trm.hist_in_file[-1].split('|')[0],],
                 ['lench',len(_gl.trm.hist_in_file),]]
-        wndw.FindElement('_DATA_HIST_FILE_table_').Update(mtrx)
+    else:
+        mtrx = [['first', '',],
+                ['second','',],
+                ['------','-----------------------------------',],
+                ['last' , '',],
+                ['lench', len(_gl.trm.hist_in_file),]]
+    wndw.FindElement('_DATA_HIST_FILE_table_').Update(mtrx)
     if _gl.trm.cnt_errors < 2:
         wndw.FindElement('_st_hst_').Update(_gl.stastus_bar, background_color = 'LightGreen')
     else:
@@ -617,7 +623,7 @@ def event_menu_CFG_SOFT(ev, val, wndw, _gl):
                 open(txt, 'w').close()
             except Exception as ex:
                 err_lmb('event_menu_CFG_SOFT', s_lmb('Error clear hist_FUT_today file!') + s_lmb(str(ex)))
-            ok_lmb('CLEAR_HIST_FILE', _gl.cfg_soft)
+            ok_lmb('CLEAR_HIST_FILE', s_lmb('Clear HIST file') + s_lmb(path))
     #-------------------------------------------------------------------
     if _gl.trm.cnt_errors < 2:
         wndw.FindElement('_st_soft_').Update(_gl.stastus_bar, background_color = 'LightGreen')
