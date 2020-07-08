@@ -25,7 +25,7 @@ locationXY = (300, 50)
 menu_def = [sg.Menu([['TABLES',  ['CFG_SOFT', 'DATA_ACNT', 'DATA_PROFIT', '---',
                                   'DATA_FUT_FILE', 'DATA_HIST_FILE', '---',
                                   'Exit',],],
-                     ['SERVICE', ['SAVE_HIST_FILE', 'CLR_HIST_TBL',],]],
+                     ['SERVICE', ['SAVE_HIST_FILE', 'CLR_HIST_FILE', '---', 'CLR_HIST_TBL',],]],
                 tearoff=False, key='-MENU-')]
 #=======================================================================
 class Class_CNST():
@@ -434,8 +434,8 @@ def wndw_menu_DATA_HIST_FILE(wndw, _gl):
                             justification         = 'center',
                             alternating_row_color = 'darkgray',
                             )],
-                        [sg.Button('CLR TABLE HIST_FUT',  key='-CLR_TBL_HIST_FUT-'),
-                         sg.Button('READ TABLE HIST_FUT', key='-READ_TBL_HIST_FUT-')],
+                        #[sg.Button('CLR TABLE HIST_FUT',  key='-CLR_TBL_HIST_FUT-'),
+                        [sg.Button('READ TABLE HIST_FUT', key='-READ_TBL_HIST_FUT-')],
                         [sg.StatusBar(text= _gl.trm.account.dt + '  wait ...', size=(32,1), key='_st_hst_'), sg.Exit()]]
     wndw = sg.Window(_gl.cfg_soft[Class_CNST.titul][1]+' / DATA_HIST_FILE', location=locationXY).Layout(layout_DATA_HIST_FILE)
     _gl.wndw_menu   = 'DATA_HIST_FILE'
@@ -455,8 +455,9 @@ def wndw_menu_CFG_SOFT(wndw, _gl):
                             alternating_row_color = 'thistle',
                             )],
                         [sg.Button('___EDIT___', key='-EDIT_CFG_SOFT-'), sg.T(28*' '),
-                         sg.Button('__SAVE__'  , key='-SAVE_HIST_FILE-'),
-                         sg.Button('__CLEAR__' , key='-CLEAR_HIST_FILE-')],
+                         # sg.Button('__SAVE__'  , key='-SAVE_HIST_FILE-'),
+                         # sg.Button('__CLEAR__' , key='-CLEAR_HIST_FILE-')
+                         ],
                         [sg.StatusBar(text= _gl.trm.account.dt + '  wait ...', size=(42,1), key='_st_soft_'),
                          sg.Exit()]]
     wndw = sg.Window(_gl.cfg_soft[Class_CNST.titul][1]+' / CFG_SOFT', location=locationXY).Layout(layout_CFG_SOFT)
@@ -489,19 +490,19 @@ def event_menu_DATA_HIST_FILE(ev, val, wndw, _gl):
         else:
             err_lmb(ev,'Could not read table *hist_FUT* !' + rep[1])
     #-------------------------------------------------------------------
-    if ev == '-CLR_TBL_HIST_FUT-':
-        print('-CLR_TBL_HIST_FUT-')
-        print(val)
-        rep = _gl.db_TODAY.update_tbl('hist_PACK', [])
-        if rep[0] == 0:
-            ok_lmb(ev,'OK, clear table *hist_PACK* successfully !')
-        else:
-            err_lmb(ev,'Could not clear table *hist_PACK* !' + rep[1])
-        rep = _gl.db_TODAY.update_tbl('hist_FUT', [])
-        if rep[0] == 0:
-            ok_lmb(ev,'OK, clear table *hist_FUT* successfully !')
-        else:
-            err_lmb(ev,'Could not clear table *hist_FUT* !' + rep[1])
+    #if ev == '-CLR_TBL_HIST_FUT-':
+        #print('-CLR_TBL_HIST_FUT-')
+        #print(val)
+        #rep = _gl.db_TODAY.update_tbl('hist_PACK', [])
+        #if rep[0] == 0:
+            #ok_lmb(ev,'OK, clear table *hist_PACK* successfully !')
+        #else:
+            #err_lmb(ev,'Could not clear table *hist_PACK* !' + rep[1])
+        #rep = _gl.db_TODAY.update_tbl('hist_FUT', [])
+        #if rep[0] == 0:
+            #ok_lmb(ev,'OK, clear table *hist_FUT* successfully !')
+        #else:
+            #err_lmb(ev,'Could not clear table *hist_FUT* !' + rep[1])
     #-------------------------------------------------------------------
     if len(_gl.trm.hist_in_file) > 2:
         mtrx = [['first',_gl.trm.hist_in_file[0].split('|')[0],],
@@ -572,59 +573,6 @@ def event_menu_CFG_SOFT(ev, val, wndw, _gl):
             else:
                 err_lmb(ev, s_lmb(slct[0]) + s_lmb('Sorry, can not change'))
     #-------------------------------------------------------------------
-    if ev == '-SAVE_HIST_FILE-':
-        print('-SAVE_HIST_FILE-')
-        rep = _gl.db_TODAY.read_tbl('hist_FUT')
-        if rep[0] > 0:
-            err_lmb(ev, s_lmb('Could not read table *hist_FUT*!') + s_lmb(rep[1]))
-        else:
-            hst_fut_t = rep[1]
-            path = _gl.cfg_soft[Class_CNST.path_file_TXT][1]
-            txt = sg.PopupGetText( 'Save hist_FUT_today into file',
-                        title=ev,  size=(55,1),  default_text = path)
-            if (txt != None):
-                # save hist_FUT_today into file ------------------------
-                print('len(hist_FUT_today) = ', len(hst_fut_t))
-                if len(hst_fut_t) > 0: # change 2020-00-00 to  for name FILE
-                    h = hst_fut_t[-1][1]
-                    y_m_d = h[6:10] + '-' + h[3:5] + '-' + h[0:2]
-                    y_m_d = path.split('***')[0] + y_m_d + path.split('***')[1]
-                    print(path+'\n'+y_m_d)
-                    with open(y_m_d, 'w') as file_HIST:
-                        for item in hst_fut_t:
-                            file_HIST.write(item[1]+'\n')
-                    #
-                    # check print STRINGS for delay more then 1 minute
-                    frm = "%d.%m.%Y %H:%M:%S"
-                    str_buf = 'start = ' + hst_fut_t[0][1].split('|')[0]
-                    print(str_buf)
-                    for i, item in enumerate(hst_fut_t[2:]):
-                        pr, cr = hst_fut_t[i-1][1], hst_fut_t[i-0][1]
-                        dtp = datetime.strptime(str(pr.split('|')[0]), frm)
-                        prv_time = dtp.second + 60 * dtp.minute + 60 * 60 * dtp.hour
-                        dtc = datetime.strptime(str(cr.split('|')[0]), frm)
-                        cur_time = dtc.second + 60 * dtc.minute + 60 * 60 * dtc.hour
-                        if (cur_time - prv_time) > 60:
-                            str_buf = 'delay = ' + pr.split('|')[0] + ' ... ' + cr.split('|')[0]
-                            print(str_buf)
-                    str_buf = 'last = ' + hst_fut_t[-1][1].split('|')[0]
-                    print(str_buf)
-                    ok_lmb(ev, 'You have saved hist_FUT in file successfully !')
-                else:
-                    err_lmb(ev, s_lmb('Table *hist_FUT*!') + s_lmb('is EMPTY !!!'))
-    #-------------------------------------------------------------------
-    if ev == '-CLEAR_HIST_FILE-':  #path_file_HIST
-        print('-CLEAR_HIST_FILE-')
-        path = _gl.cfg_soft[Class_CNST.path_file_HIST][1]
-        txt = sg.PopupGetText( 'Clear hist_FUT_today file',
-                    title=ev,  size=(55,1),  default_text = path)
-        if (txt != None):
-            try:
-                open(txt, 'w').close()
-            except Exception as ex:
-                err_lmb('event_menu_CFG_SOFT', s_lmb('Error clear hist_FUT_today file!') + s_lmb(str(ex)))
-            ok_lmb('CLEAR_HIST_FILE', s_lmb('Clear HIST file') + s_lmb(path))
-    #-------------------------------------------------------------------
     if _gl.trm.cnt_errors < 2:
         wndw.FindElement('_st_soft_').Update(_gl.stastus_bar, background_color = 'LightGreen')
     else:
@@ -659,6 +607,69 @@ def event_menu_DATA_PROFIT(ev, val, wndw, _gl):
     else:
         wndw.FindElement('_txt_DATA_PROFIT_').Update(str(int(prf)), text_color = 'Red')
 #=======================================================================
+def event_menu_SAVE_HIST_FILE(ev, val, wndw, _gl):
+    rep = _gl.db_TODAY.read_tbl('hist_FUT')
+    if rep[0] > 0:
+        err_lmb(ev, s_lmb('Could not read table *hist_FUT*!') + s_lmb(rep[1]))
+    else:
+        hst_fut_t = rep[1]
+        path = _gl.cfg_soft[Class_CNST.path_file_TXT][1]
+        txt = sg.PopupGetText( 'Save hist_FUT_today into file',
+                    title=ev,  size=(55,1),  default_text = path)
+        if (txt != None):
+            # save hist_FUT_today into file ------------------------
+            print('len(hist_FUT_today) = ', len(hst_fut_t))
+            if len(hst_fut_t) > 0: # change 2020-00-00 to  for name FILE
+                h = hst_fut_t[-1][1]
+                y_m_d = h[6:10] + '-' + h[3:5] + '-' + h[0:2]
+                y_m_d = path.split('***')[0] + y_m_d + path.split('***')[1]
+                print(path+'\n'+y_m_d)
+                with open(y_m_d, 'w') as file_HIST:
+                    for item in hst_fut_t:
+                        file_HIST.write(item[1]+'\n')
+                #
+                # check print STRINGS for delay more then 1 minute
+                frm = "%d.%m.%Y %H:%M:%S"
+                str_buf = 'start = ' + hst_fut_t[0][1].split('|')[0]
+                print(str_buf)
+                for i, item in enumerate(hst_fut_t[2:]):
+                    pr, cr = hst_fut_t[i-1][1], hst_fut_t[i-0][1]
+                    dtp = datetime.strptime(str(pr.split('|')[0]), frm)
+                    prv_time = dtp.second + 60 * dtp.minute + 60 * 60 * dtp.hour
+                    dtc = datetime.strptime(str(cr.split('|')[0]), frm)
+                    cur_time = dtc.second + 60 * dtc.minute + 60 * 60 * dtc.hour
+                    if (cur_time - prv_time) > 60:
+                        str_buf = 'delay = ' + pr.split('|')[0] + ' ... ' + cr.split('|')[0]
+                        print(str_buf)
+                str_buf = 'last = ' + hst_fut_t[-1][1].split('|')[0]
+                print(str_buf)
+                ok_lmb(ev, 'You have saved hist_FUT in file successfully !')
+            else:
+                err_lmb(ev, s_lmb('Table *hist_FUT*!') + s_lmb('is EMPTY !!!'))
+#=======================================================================
+def event_menu_CLR_HIST_FILE(ev, val, wndw, _gl):
+    path = _gl.cfg_soft[Class_CNST.path_file_HIST][1]
+    txt = sg.PopupGetText( 'Clear hist_FUT_today file',
+                title=ev,  size=(55,1),  default_text = path)
+    if (txt != None):
+        try:
+            open(txt, 'w').close()
+        except Exception as ex:
+            err_lmb('event_menu_CFG_SOFT', s_lmb('Error clear hist_FUT_today file!') + s_lmb(str(ex)))
+        ok_lmb('CLEAR_HIST_FILE', s_lmb('Clear HIST file') + s_lmb(path))
+#=======================================================================
+def event_menu_CLR_HIST_TBL(ev, val, wndw, _gl):
+    rep = _gl.db_TODAY.update_tbl('hist_PACK', [])
+    if rep[0] == 0:
+        ok_lmb(ev,'OK, clear table *hist_PACK* successfully !')
+    else:
+        err_lmb(ev,'Could not clear table *hist_PACK* !' + rep[1])
+    rep = _gl.db_TODAY.update_tbl('hist_FUT', [])
+    if rep[0] == 0:
+        ok_lmb(ev,'OK, clear table *hist_FUT* successfully !')
+    else:
+        err_lmb(ev,'Could not clear table *hist_FUT* !' + rep[1])
+#=======================================================================
 def main():
     # init -------------------------------------------------------------
     while True:     # INIT cycle  --------------------------------------
@@ -686,7 +697,7 @@ def main():
         break
     #
     wndw = sg.Window('START').Layout([menu_def, [sg.Exit()]])
-    wndw = wndw_menu_DATA_ACNT(wndw, _gl)
+    wndw = wndw_menu_CFG_SOFT(wndw, _gl)
     #
     while True:     # MAIN cycle  --------------------------------------
         # for sg.Input must be => wndw.Read()  OR  timeout > 10000
@@ -738,7 +749,6 @@ def main():
                     #
             except Exception as ex:
                 _gl.trm.err_rd_term('main', str(ex), err_log = True)
-
             #print('_gl.wndw_menu = ', _gl.wndw_menu)
         if _gl.wndw_menu == 'CFG_SOFT':
             event_menu_CFG_SOFT(evn, val, wndw, _gl)
@@ -750,7 +760,6 @@ def main():
             event_menu_DATA_ACNT(evn, val, wndw, _gl)
         elif _gl.wndw_menu == 'DATA_PROFIT':
             event_menu_DATA_PROFIT(evn, val, wndw, _gl)
-
         else:      pass
         #
         if evn == 'CFG_SOFT':
@@ -763,8 +772,13 @@ def main():
             wndw = wndw_menu_DATA_ACNT(wndw, _gl)
         elif evn == 'DATA_PROFIT':
             wndw = wndw_menu_DATA_PROFIT(wndw, _gl)
+        elif evn == 'SAVE_HIST_FILE':
+            event_menu_SAVE_HIST_FILE(evn, val, wndw, _gl)
+        elif evn == 'CLR_HIST_FILE':
+            event_menu_CLR_HIST_FILE(evn, val, wndw, _gl)
+        elif evn == 'CLR_HIST_TBL':
+            event_menu_CLR_HIST_TBL(evn, val, wndw, _gl)
         else:      pass
-
 
     #ok_lmb('titul', 'message')
     return 0
