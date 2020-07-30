@@ -246,6 +246,7 @@ class Class_TRMN():
                 del lst[-1]
                 if   i == 0:
                     acc.dt  = lst[0]
+                    dtt = datetime.strptime(acc.dt, "%d.%m.%Y %H:%M:%S")
                 elif i == 1:
                     acc.arr = [float(j) for j in lst]
                 else:
